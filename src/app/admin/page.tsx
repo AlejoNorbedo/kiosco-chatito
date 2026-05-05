@@ -30,7 +30,12 @@ export default function PaginaAdmin() {
     setError('')
     const res = await fetch('/api/admin/productos')
     if (!res.ok) {
-      setError('Error cargando productos')
+      try {
+        const { error: detalle, code } = await res.json()
+        setError(detalle ? `${detalle}${code ? ` (${code})` : ''}` : 'Error cargando productos')
+      } catch {
+        setError('Error cargando productos')
+      }
     } else {
       setProductos(await res.json())
     }
