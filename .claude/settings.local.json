@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@14 . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --yes)",
+      "Read(//c/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/**)",
+      "Bash(npx create-next-app@14 kiosco-temp --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --yes)",
+      "Bash(cp -r \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/kiosco-temp/src\" \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/Proyecto kiosco chatito/\")",
+      "Bash(cp \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/kiosco-temp/package.json\" \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/Proyecto kiosco chatito/\")",
+      "Bash(cp \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/kiosco-temp/tsconfig.json\" \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/Proyecto kiosco chatito/\")",
+      "Bash(cp \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/kiosco-temp/tailwind.config.ts\" \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/Proyecto kiosco chatito/\")",
+      "Bash(cp \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/kiosco-temp/next.config.mjs\" \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/Proyecto kiosco chatito/\")",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
