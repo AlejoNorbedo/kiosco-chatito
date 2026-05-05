@@ -1,5 +1,6 @@
 'use client'
 
+import { supabase } from '@/lib/supabase'
 import type { ItemCarrito } from '@/types'
 
 type Props = {
@@ -32,8 +33,17 @@ export default function Carrito({
     )
   }
 
-  function pedirPorWhatsApp() {
+  async function pedirPorWhatsApp() {
     if (items.length === 0) return
+
+    // Registrar el pedido de forma asincrónica (sin bloquear la apertura de WhatsApp)
+    const itemsParaGuardar = items.map((i) => ({
+      nombre: i.producto.nombre,
+      precio: i.producto.precio,
+      cantidad: i.cantidad,
+    }))
+    supabase.from('pedidos').insert({ items: itemsParaGuardar, total: totalPrecio }).then()
+
     const mensaje = armarMensajeWhatsApp()
     window.open(`https://wa.me/${numeroWhatsApp}?text=${mensaje}`, '_blank')
   }

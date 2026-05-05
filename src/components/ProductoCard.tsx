@@ -17,6 +17,7 @@ export default function ProductoCard({
   onQuitar,
 }: Props) {
   const cantidad = itemEnCarrito?.cantidad ?? 0
+  const agotado = producto.stock === 0
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
@@ -27,12 +28,19 @@ export default function ProductoCard({
             src={producto.imagen_url}
             alt={producto.nombre}
             fill
-            className="object-cover"
+            className={`object-cover ${agotado ? 'grayscale opacity-60' : ''}`}
             sizes="(max-width: 640px) 50vw, 33vw"
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-4xl">
+          <div className={`flex items-center justify-center h-full text-4xl ${agotado ? 'grayscale opacity-60' : ''}`}>
             🛍️
+          </div>
+        )}
+        {agotado && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full">
+              AGOTADO
+            </span>
           </div>
         )}
       </div>
@@ -48,7 +56,14 @@ export default function ProductoCard({
 
         {/* Control de cantidad */}
         <div className="mt-auto">
-          {cantidad === 0 ? (
+          {agotado ? (
+            <button
+              disabled
+              className="w-full bg-gray-100 text-gray-400 text-sm font-semibold py-2 rounded-xl cursor-not-allowed"
+            >
+              Agotado
+            </button>
+          ) : cantidad === 0 ? (
             <button
               onClick={() => onAgregar(producto)}
               className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white text-sm font-semibold py-2 rounded-xl transition-colors"
