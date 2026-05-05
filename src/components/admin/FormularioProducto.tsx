@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { Producto } from '@/types'
 
 type Campos = {
@@ -30,12 +30,65 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
+  // Estado de imagen
+  const [previewLocal, setPreviewLocal] = useState<string | null>(null)
+  const [subiendo, setSubiendo] = useState(false)
+  const [errorImagen, setErrorImagen] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
   function actualizar(campo: keyof Campos, valor: string | boolean) {
     setCampos((prev) => ({ ...prev, [campo]: valor }))
   }
 
+  async function manejarArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0]
+    if (!archivo) return
+
+    if (!archivo.type.startsWith('image/')) {
+      setErrorImagen('Solo se permiten imágenes (JPG, PNG, WebP)')
+      return
+    }
+    if (archivo.size > 5 * 1024 * 1024) {
+      setErrorImagen('La imagen no puede superar 5MB')
+      return
+    }
+
+    setErrorImagen('')
+    // Preview local inmediato mientras sube en segundo plano
+    setPreviewLocal(URL.createObjectURL(archivo))
+
+    setSubiendo(true)
+    try {
+      const form = new FormData()
+      form.append('imagen', archivo)
+      const res = await fetch('/api/admin/storage', { method: 'POST', body: form })
+
+      if (!res.ok) {
+        const { error: detalle } = await res.json()
+        setErrorImagen(detalle ?? 'Error al subir la imagen')
+        setPreviewLocal(null)
+        return
+      }
+
+      const { url } = await res.json()
+      actualizar('imagen_url', url)
+    } finally {
+      setSubiendo(false)
+    }
+  }
+
+  function quitarImagen() {
+    setPreviewLocal(null)
+    actualizar('imagen_url', '')
+    setErrorImagen('')
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  const imagenActual = previewLocal || campos.imagen_url || null
+
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
+    if (subiendo) return
     setGuardando(true)
     setError('')
 
@@ -87,6 +140,67 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
         </div>
 
         <form onSubmit={enviar} className="overflow-y-auto p-5 flex flex-col gap-4">
+          {/* Bloque de imagen */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Imagen</label>
+
+            {/* Preview */}
+            {imagenActual && (
+              <div className="relative mb-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imagenActual}
+                  alt="Preview del producto"
+                  className="w-full h-44 object-cover rounded-xl border border-gray-200"
+                />
+                {/* Overlay de carga */}
+                {subiendo && (
+                  <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-xl gap-2">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span className="text-white text-xs font-medium">Subiendo...</span>
+                  </div>
+                )}
+                {/* Botón quitar (solo cuando no está subiendo) */}
+                {!subiendo && (
+                  <button
+                    type="button"
+                    onClick={quitarImagen}
+                    className="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center text-lg leading-none transition-colors"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Input oculto */}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              onChange={manejarArchivo}
+              className="hidden"
+            />
+
+            {/* Botón de subida */}
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={subiendo}
+              className="w-full border-2 border-dashed border-gray-200 hover:border-green-400 rounded-xl py-3 text-sm text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {subiendo
+                ? 'Subiendo imagen...'
+                : imagenActual
+                  ? '📷 Cambiar imagen'
+                  : '📷 Subir imagen'}
+            </button>
+
+            {errorImagen && (
+              <p className="text-red-500 text-xs mt-1">{errorImagen}</p>
+            )}
+          </div>
+
           <Campo label="Nombre" requerido>
             <input
               type="text"
@@ -132,16 +246,6 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
             </Campo>
           </div>
 
-          <Campo label="URL de imagen (opcional)">
-            <input
-              type="url"
-              value={campos.imagen_url}
-              onChange={(e) => actualizar('imagen_url', e.target.value)}
-              placeholder="https://..."
-              className={estiloInput}
-            />
-          </Campo>
-
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -164,10 +268,10 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
             </button>
             <button
               type="submit"
-              disabled={guardando}
+              disabled={guardando || subiendo}
               className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-bold py-3 rounded-xl transition-colors"
             >
-              {guardando ? 'Guardando...' : 'Guardar'}
+              {subiendo ? 'Esperá...' : guardando ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
         </form>
