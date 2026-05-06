@@ -19,3 +19,6 @@ CREATE POLICY "lectura_publica_config" ON configuracion
 
 -- Agregar campo para guardar datos del cliente junto al pedido
 ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS datos_cliente jsonb;
+
+-- Monto mínimo de pedido
+ALTER TABLE configuracion ADD COLUMN IF NOT EXISTS monto_minimo integer NOT NULL DEFAULT 0;

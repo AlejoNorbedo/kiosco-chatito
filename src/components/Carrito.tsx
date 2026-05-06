@@ -19,6 +19,7 @@ const CONFIG_DEFECTO: Configuracion = {
   tiempo_entrega_activo: false,
   tiempo_entrega_texto: '30-45 minutos',
   telefono_requerido: false,
+  monto_minimo: 0,
 }
 
 export default function Carrito({
@@ -230,9 +231,20 @@ export default function Carrito({
                   </span>
                 </div>
 
+                {config.monto_minimo > 0 && totalPrecio < config.monto_minimo && (
+                  <p className="text-xs text-center text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                    Te faltan{' '}
+                    <strong>
+                      ${(config.monto_minimo - totalPrecio).toLocaleString('es-AR')}
+                    </strong>{' '}
+                    para el pedido mínimo de ${config.monto_minimo.toLocaleString('es-AR')}
+                  </p>
+                )}
+
                 <button
                   onClick={() => setPaso('checkout')}
-                  className="w-full bg-[#CC0000] hover:bg-red-700 active:bg-red-800 text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-900/20"
+                  disabled={config.monto_minimo > 0 && totalPrecio < config.monto_minimo}
+                  className="w-full bg-[#CC0000] hover:bg-red-700 active:bg-red-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-900/20 disabled:shadow-none"
                 >
                   Continuar con el pedido →
                 </button>

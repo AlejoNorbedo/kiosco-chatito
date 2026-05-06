@@ -22,6 +22,7 @@ export default function PaginaAdmin() {
     tiempo_entrega_activo: false,
     tiempo_entrega_texto: '30-45 minutos',
     telefono_requerido: false,
+    monto_minimo: 0,
   })
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -300,6 +301,28 @@ export default function PaginaAdmin() {
         {/* TAB CONFIGURACIÓN */}
         {tab === 'configuracion' && (
           <div className="flex flex-col gap-4">
+            {/* Monto mínimo */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-3">Pedido mínimo</p>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Monto mínimo de pedido ($)
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={config.monto_minimo}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, monto_minimo: parseInt(e.target.value) || 0 }))
+                }
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-green-500 bg-white"
+                placeholder="0"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">
+                Ponelo en 0 para no exigir un mínimo.
+              </p>
+            </div>
+
             {/* Costo de envío */}
             <div className="bg-white rounded-xl border border-gray-100 p-4">
               <p className="text-sm font-semibold text-gray-700 mb-3">Envío a domicilio</p>

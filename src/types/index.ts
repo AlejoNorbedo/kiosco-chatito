@@ -31,6 +31,7 @@ export type Configuracion = {
   tiempo_entrega_activo: boolean
   tiempo_entrega_texto: string
   telefono_requerido: boolean
+  monto_minimo: number
 }
 
 export type DatosCheckout = {
