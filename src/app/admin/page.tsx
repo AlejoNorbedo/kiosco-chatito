@@ -3,18 +3,32 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import FormularioProducto from '@/components/admin/FormularioProducto'
-import type { Producto, Pedido } from '@/types'
+import type { Producto, Pedido, Configuracion } from '@/types'
 
-type Tab = 'productos' | 'pedidos'
+type Tab = 'productos' | 'pedidos' | 'configuracion'
+
+const TAB_LABELS: Record<Tab, string> = {
+  productos: 'Productos',
+  pedidos: 'Pedidos',
+  configuracion: 'Configuración',
+}
 
 export default function PaginaAdmin() {
   const [tab, setTab] = useState<Tab>('productos')
   const [productos, setProductos] = useState<Producto[]>([])
   const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const [config, setConfig] = useState<Configuracion>({
+    costo_envio: 0,
+    tiempo_entrega_activo: false,
+    tiempo_entrega_texto: '30-45 minutos',
+    telefono_requerido: false,
+  })
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [productoEditando, setProductoEditando] = useState<Producto | undefined>()
+  const [guardandoConfig, setGuardandoConfig] = useState(false)
+  const [mensajeConfig, setMensajeConfig] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -23,6 +37,7 @@ export default function PaginaAdmin() {
 
   useEffect(() => {
     if (tab === 'pedidos' && pedidos.length === 0) cargarPedidos()
+    if (tab === 'configuracion') cargarConfig()
   }, [tab])
 
   async function cargarProductos() {
@@ -45,6 +60,24 @@ export default function PaginaAdmin() {
   async function cargarPedidos() {
     const res = await fetch('/api/admin/pedidos')
     if (res.ok) setPedidos(await res.json())
+  }
+
+  async function cargarConfig() {
+    const res = await fetch('/api/admin/configuracion')
+    if (res.ok) setConfig(await res.json())
+  }
+
+  async function guardarConfig() {
+    setGuardandoConfig(true)
+    setMensajeConfig('')
+    const res = await fetch('/api/admin/configuracion', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    })
+    setGuardandoConfig(false)
+    setMensajeConfig(res.ok ? '✓ Guardado' : 'Error al guardar')
+    setTimeout(() => setMensajeConfig(''), 3000)
   }
 
   async function cerrarSesion() {
@@ -123,18 +156,18 @@ export default function PaginaAdmin() {
         </div>
 
         {/* Tabs */}
-        <div className="max-w-2xl mx-auto px-4 flex gap-1 pb-0">
-          {(['productos', 'pedidos'] as Tab[]).map((t) => (
+        <div className="max-w-2xl mx-auto px-4 flex gap-1 pb-0 overflow-x-auto scrollbar-hide">
+          {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-5 py-2.5 text-sm font-medium border-b-2 capitalize transition-colors ${
+              className={`flex-shrink-0 px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 tab === t
                   ? 'border-green-500 text-green-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t === 'productos' ? 'Productos' : 'Pedidos'}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </div>
@@ -175,7 +208,6 @@ export default function PaginaAdmin() {
                       !producto.activo ? 'opacity-50' : 'border-gray-100'
                     }`}
                   >
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-800 text-sm truncate">
                         {producto.nombre}
@@ -188,9 +220,7 @@ export default function PaginaAdmin() {
                       </p>
                     </div>
 
-                    {/* Acciones */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Toggle activo */}
                       <button
                         onClick={() => toggleActivo(producto)}
                         title={producto.activo ? 'Desactivar' : 'Activar'}
@@ -203,7 +233,6 @@ export default function PaginaAdmin() {
                         {producto.activo ? '✓' : '○'}
                       </button>
 
-                      {/* Editar */}
                       <button
                         onClick={() => abrirEditar(producto)}
                         className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-sm transition-colors"
@@ -211,7 +240,6 @@ export default function PaginaAdmin() {
                         ✏️
                       </button>
 
-                      {/* Eliminar */}
                       <button
                         onClick={() => eliminarProducto(producto.id)}
                         className="w-9 h-9 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center text-sm transition-colors"
@@ -268,6 +296,94 @@ export default function PaginaAdmin() {
             </div>
           </>
         )}
+
+        {/* TAB CONFIGURACIÓN */}
+        {tab === 'configuracion' && (
+          <div className="flex flex-col gap-4">
+            {/* Costo de envío */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-3">Envío a domicilio</p>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Costo de envío ($)
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={config.costo_envio}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, costo_envio: parseInt(e.target.value) || 0 }))
+                }
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-green-500 bg-white"
+                placeholder="0"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">
+                Ponelo en 0 si el envío es gratis o si no ofrecés envío.
+              </p>
+            </div>
+
+            {/* Tiempo estimado */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-semibold text-gray-700">Tiempo estimado de entrega</p>
+                <Toggle
+                  activo={config.tiempo_entrega_activo}
+                  onChange={(v) => setConfig((prev) => ({ ...prev, tiempo_entrega_activo: v }))}
+                />
+              </div>
+              {config.tiempo_entrega_activo && (
+                <input
+                  type="text"
+                  value={config.tiempo_entrega_texto}
+                  onChange={(e) =>
+                    setConfig((prev) => ({ ...prev, tiempo_entrega_texto: e.target.value }))
+                  }
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-green-500 bg-white"
+                  placeholder="Ej: 30-45 minutos"
+                />
+              )}
+              <p className="text-xs text-gray-400 mt-1.5">
+                Se muestra en el formulario de pedido y en el mensaje de WhatsApp.
+              </p>
+            </div>
+
+            {/* Teléfono requerido */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  <p className="text-sm font-semibold text-gray-700">Solicitar teléfono al cliente</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    El cliente deberá ingresar su número antes de enviar el pedido.
+                  </p>
+                </div>
+                <Toggle
+                  activo={config.telefono_requerido}
+                  onChange={(v) => setConfig((prev) => ({ ...prev, telefono_requerido: v }))}
+                />
+              </div>
+            </div>
+
+            {/* Guardar */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={guardarConfig}
+                disabled={guardandoConfig}
+                className="bg-green-500 hover:bg-green-600 disabled:opacity-60 text-white text-sm font-bold px-6 py-2.5 rounded-xl transition-colors"
+              >
+                {guardandoConfig ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+              {mensajeConfig && (
+                <span
+                  className={`text-sm font-medium ${
+                    mensajeConfig.startsWith('✓') ? 'text-green-600' : 'text-red-500'
+                  }`}
+                >
+                  {mensajeConfig}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal formulario */}
@@ -279,5 +395,23 @@ export default function PaginaAdmin() {
         />
       )}
     </main>
+  )
+}
+
+function Toggle({ activo, onChange }: { activo: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!activo)}
+      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+        activo ? 'bg-green-500' : 'bg-gray-200'
+      }`}
+    >
+      <span
+        className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+          activo ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
   )
 }

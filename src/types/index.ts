@@ -25,3 +25,21 @@ export type Pedido = {
   total: number
   created_at: string
 }
+
+export type Configuracion = {
+  costo_envio: number
+  tiempo_entrega_activo: boolean
+  tiempo_entrega_texto: string
+  telefono_requerido: boolean
+}
+
+export type DatosCheckout = {
+  nombre: string
+  tipoEntrega: 'retiro' | 'envio'
+  direccion: string
+  entreCalles: string
+  metodoPago: 'efectivo' | 'transferencia'
+  conCuanto: string
+  telefono: string
+  aclaraciones: string
+}
