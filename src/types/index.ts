@@ -24,6 +24,7 @@ export type Pedido = {
   items: ItemPedido[]
   total: number
   created_at: string
+  datos_cliente?: DatosCheckout
 }
 
 export type Configuracion = {

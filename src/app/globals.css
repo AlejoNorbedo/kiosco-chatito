@@ -21,3 +21,19 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Inputs nativos de fecha y hora en el panel admin */
+.input-fecha-admin::-webkit-calendar-picker-indicator {
+  opacity: 0.35;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px;
+  transition: opacity 0.15s;
+}
+.input-fecha-admin::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.75;
+  background-color: #fee2e2;
+}
+.input-fecha-admin:focus::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+}

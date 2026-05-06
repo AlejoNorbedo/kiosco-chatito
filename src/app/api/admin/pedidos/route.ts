@@ -1,14 +1,25 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const desde = searchParams.get('desde')
+    const hasta = searchParams.get('hasta')
+
     const supabase = crearClienteAdmin()
-    const { data, error } = await supabase
+    let query = supabase
       .from('pedidos')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50)
+
+    if (desde && hasta) {
+      query = query.gte('created_at', desde).lte('created_at', hasta)
+    } else {
+      query = query.limit(50)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       return NextResponse.json(

@@ -122,14 +122,8 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-      onClick={onCerrar}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-5 border-b">
           <h2 className="text-lg font-bold text-gray-800">
             {producto ? 'Editar producto' : 'Nuevo producto'}
@@ -187,7 +181,7 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={subiendo}
-              className="w-full border-2 border-dashed border-gray-200 hover:border-green-400 rounded-xl py-3 text-sm text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full border-2 border-dashed border-gray-200 hover:border-[#CC0000] rounded-xl py-3 text-sm text-gray-400 hover:text-[#CC0000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {subiendo
                 ? 'Subiendo imagen...'
@@ -269,7 +263,7 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
             <button
               type="submit"
               disabled={guardando || subiendo}
-              className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-bold py-3 rounded-xl transition-colors"
+              className="flex-1 bg-[#CC0000] hover:bg-red-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors"
             >
               {subiendo ? 'Esperá...' : guardando ? 'Guardando...' : 'Guardar'}
             </button>
@@ -281,7 +275,7 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
 }
 
 const estiloInput =
-  'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-green-400'
+  'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 text-sm focus:outline-none focus:border-[#CC0000]'
 
 function Campo({
   label,

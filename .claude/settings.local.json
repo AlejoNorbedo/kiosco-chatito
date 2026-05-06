@@ -10,7 +10,8 @@
       "Bash(cp \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/kiosco-temp/tailwind.config.ts\" \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/Proyecto kiosco chatito/\")",
       "Bash(cp \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/kiosco-temp/next.config.mjs\" \"C:/Users/Alejo/OneDrive/Escritorio/Alejo/Claude code/Proyecto kiosco chatito/\")",
       "Bash(npm install *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(node -e \"require\\('jspdf'\\); console.log\\('ok'\\)\")"
     ]
   }
 }
