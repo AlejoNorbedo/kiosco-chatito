@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --fondo: #f9fafb;
+  --fondo: #f3f4f6;
   --texto: #111827;
 }
 
@@ -11,4 +11,13 @@ body {
   background-color: var(--fondo);
   color: var(--texto);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Ocultar scrollbar en el filtro de categorías */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
