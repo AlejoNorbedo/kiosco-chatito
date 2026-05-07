@@ -19,12 +19,15 @@ export type ItemPedido = {
   cantidad: number
 }
 
+export type EstadoPedido = 'pendiente' | 'confirmado' | 'cancelado'
+
 export type Pedido = {
   id: string
   items: ItemPedido[]
   total: number
   created_at: string
   datos_cliente?: DatosCheckout
+  estado: EstadoPedido
 }
 
 export type Configuracion = {

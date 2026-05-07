@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
       query = query.limit(50)
     }
 
+    const estado = searchParams.get('estado')
+    if (estado) query = query.eq('estado', estado)
+
     const { data, error } = await query
 
     if (error) {

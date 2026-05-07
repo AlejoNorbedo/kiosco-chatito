@@ -94,7 +94,7 @@ export default function CierreCaja() {
 
     setCargando(true)
     const res = await fetch(
-      `/api/admin/pedidos?desde=${encodeURIComponent(desdeISO)}&hasta=${encodeURIComponent(hastaISO)}`
+      `/api/admin/pedidos?desde=${encodeURIComponent(desdeISO)}&hasta=${encodeURIComponent(hastaISO)}&estado=confirmado`
     )
     if (res.ok) setPedidos(await res.json())
     setPeriodoLabel(label)
