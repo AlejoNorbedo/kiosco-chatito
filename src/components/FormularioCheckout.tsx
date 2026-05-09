@@ -151,9 +151,12 @@ export default function FormularioCheckout({ config, totalProductos, onEnviar }:
           </Campo>
         )}
 
-        {/* Teléfono (si está configurado como requerido) */}
-        {config.telefono_requerido && (
-          <Campo label="Teléfono *" error={errores.telefono}>
+        {/* Teléfono (requerido por config, o si fidelización está activa) */}
+        {(config.telefono_requerido || config.puntos_por_monto > 0) && (
+          <Campo
+            label={config.telefono_requerido ? 'Teléfono *' : 'Teléfono (para acumular puntos)'}
+            error={errores.telefono}
+          >
             <input
               type="tel"
               inputMode="tel"
@@ -162,6 +165,13 @@ export default function FormularioCheckout({ config, totalProductos, onEnviar }:
               onChange={(e) => set('telefono', e.target.value)}
               className={inputClass(!!errores.telefono)}
             />
+            {config.puntos_por_monto > 0 && (
+              <p className="text-xs text-amber-600 mt-1">
+                {form.telefono.trim()
+                  ? `Vas a ganar ${Math.floor(totalFinal / config.puntos_por_monto)} puntos con este pedido`
+                  : 'Ingresá tu teléfono para sumar puntos de fidelidad'}
+              </p>
+            )}
           </Campo>
         )}
 

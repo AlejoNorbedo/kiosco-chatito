@@ -36,6 +36,18 @@ export type Configuracion = {
   tiempo_entrega_texto: string
   telefono_requerido: boolean
   monto_minimo: number
+  puntos_por_monto: number
+  puntos_para_canje: number
+  mensaje_canje: string
+}
+
+export type Cliente = {
+  id: string
+  telefono: string
+  nombre: string
+  puntos_acumulados: number
+  puntos_canjeados: number
+  created_at: string
 }
 
 export type DatosCheckout = {

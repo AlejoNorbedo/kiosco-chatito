@@ -20,6 +20,9 @@ const CONFIG_DEFECTO: Configuracion = {
   tiempo_entrega_texto: '30-45 minutos',
   telefono_requerido: false,
   monto_minimo: 0,
+  puntos_por_monto: 0,
+  puntos_para_canje: 0,
+  mensaje_canje: '',
 }
 
 export default function Carrito({
@@ -40,8 +43,9 @@ export default function Carrito({
       .from('configuracion')
       .select('*')
       .single()
-      .then(({ data }) => {
-        if (data) setConfig(data)
+      .then(({ data, error }) => {
+        console.log('[carrito] config DB:', { data, error })
+        if (data) setConfig((prev) => ({ ...prev, ...data }))
       })
   }, [])
 
@@ -106,6 +110,13 @@ export default function Carrito({
       partes.push(`Tiempo estimado: ${config.tiempo_entrega_texto}`)
     }
 
+    if (config.puntos_por_monto > 0 && datos.telefono.trim()) {
+      const puntosGanados = Math.floor(totalFinal / config.puntos_por_monto)
+      partes.push('')
+      partes.push('*--- PUNTOS DE FIDELIDAD ---*')
+      partes.push(`*Puntos ganados en este pedido:* ${puntosGanados}`)
+    }
+
     partes.push('')
     partes.push('Muchas gracias, quedo a la espera de su confirmacion.')
 
@@ -113,6 +124,13 @@ export default function Carrito({
   }
 
   function handleEnviar(datos: DatosCheckout, totalFinal: number) {
+    console.log('[carrito] handleEnviar inicio', {
+      puntos_por_monto: config.puntos_por_monto,
+      telefono: datos.telefono,
+      nombre: datos.nombre,
+      totalFinal,
+    })
+
     const itemsParaGuardar = items.map((i) => ({
       nombre: i.producto.nombre,
       precio: i.producto.precio,
@@ -122,6 +140,33 @@ export default function Carrito({
       .from('pedidos')
       .insert({ items: itemsParaGuardar, total: totalFinal, datos_cliente: datos })
       .then()
+
+    const condicion = config.puntos_por_monto > 0 && !!datos.telefono.trim()
+    console.log('[carrito] condicion fidelizacion:', condicion, {
+      pxm_gt_0: config.puntos_por_monto > 0,
+      telefono_filled: !!datos.telefono.trim(),
+    })
+
+    if (condicion) {
+      const payload = {
+        telefono: datos.telefono.trim(),
+        nombre: datos.nombre.trim(),
+        monto: totalFinal,
+      }
+      console.log('[carrito] llamando /api/fidelizacion con:', payload)
+      fetch('/api/fidelizacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then(async (res) => {
+          const json = await res.json().catch(() => null)
+          console.log('[carrito] fidelizacion respuesta:', res.status, json)
+        })
+        .catch((err) => {
+          console.error('[carrito] fidelizacion error de red:', err)
+        })
+    }
 
     window.open(`https://wa.me/${numeroWhatsApp}?text=${armarMensajeWhatsApp(datos, totalFinal)}`, '_blank')
   }

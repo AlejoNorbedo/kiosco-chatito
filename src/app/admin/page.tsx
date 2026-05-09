@@ -4,14 +4,16 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import FormularioProducto from '@/components/admin/FormularioProducto'
 import CierreCaja from '@/components/admin/CierreCaja'
+import TabClientes from '@/components/admin/TabClientes'
 import type { Producto, Pedido, Configuracion, EstadoPedido } from '@/types'
 
-type Tab = 'productos' | 'pedidos' | 'cierre' | 'configuracion'
+type Tab = 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'configuracion'
 
 const TAB_LABELS: Record<Tab, string> = {
   productos: 'Productos',
   pedidos: 'Pedidos',
   cierre: 'Cierre de Caja',
+  clientes: 'Clientes',
   configuracion: 'Configuración',
 }
 
@@ -36,6 +38,9 @@ export default function PaginaAdmin() {
     tiempo_entrega_texto: '30-45 minutos',
     telefono_requerido: false,
     monto_minimo: 0,
+    puntos_por_monto: 0,
+    puntos_para_canje: 0,
+    mensaje_canje: '',
   })
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -517,6 +522,64 @@ export default function PaginaAdmin() {
               </div>
             </div>
 
+            {/* Fidelización */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-1">Sistema de fidelización</p>
+              <p className="text-xs text-gray-400 mb-4">Ponelos en 0 para desactivar el sistema.</p>
+
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Pesos por punto ($)
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={config.puntos_por_monto}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, puntos_por_monto: parseInt(e.target.value) || 0 }))
+                }
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#CC0000] bg-white mb-1"
+                placeholder="0"
+              />
+              <p className="text-xs text-gray-400 mb-4">
+                Ej: 100 → cada $100 de compra suma 1 punto.
+              </p>
+
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Puntos para canjear
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={config.puntos_para_canje}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, puntos_para_canje: parseInt(e.target.value) || 0 }))
+                }
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#CC0000] bg-white mb-1"
+                placeholder="0"
+              />
+              <p className="text-xs text-gray-400 mb-4">
+                Ej: 1000 → con 1000 puntos el cliente gana el premio.
+              </p>
+
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Descripción del premio
+              </label>
+              <input
+                type="text"
+                value={config.mensaje_canje}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, mensaje_canje: e.target.value }))
+                }
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#CC0000] bg-white mb-1"
+                placeholder="Ej: Una gaseosa gratis"
+              />
+              <p className="text-xs text-gray-400">
+                Se muestra en el checkout y al canjear desde el panel.
+              </p>
+            </div>
+
             {/* Guardar */}
             <div className="flex items-center gap-3">
               <button
@@ -541,6 +604,9 @@ export default function PaginaAdmin() {
 
         {/* TAB CIERRE DE CAJA */}
         {tab === 'cierre' && <CierreCaja />}
+
+        {/* TAB CLIENTES */}
+        {tab === 'clientes' && <TabClientes />}
       </div>
 
       {/* Modal formulario */}
