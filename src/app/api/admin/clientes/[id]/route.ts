@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
 
+export const dynamic = 'force-dynamic'
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -10,18 +12,17 @@ export async function PATCH(
     const body = await request.json()
     const { ajuste_puntos, concepto, ...camposDirectos } = body
 
-    // Ajuste manual de puntos: recalcula puntos_acumulados y loggea historial
     if (ajuste_puntos !== undefined && ajuste_puntos !== 0) {
       const { data: cliente, error: getError } = await admin
         .from('clientes')
         .select('puntos_acumulados')
         .eq('id', params.id)
-        .single()
+        .maybeSingle()
 
       if (getError) return NextResponse.json({ error: getError.message }, { status: 500 })
+      if (!cliente) return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 })
 
-      const nuevos = Math.max(0, cliente.puntos_acumulados + ajuste_puntos)
-      camposDirectos.puntos_acumulados = nuevos
+      camposDirectos.puntos_acumulados = Math.max(0, cliente.puntos_acumulados + ajuste_puntos)
 
       const motivo = concepto?.trim() ||
         (ajuste_puntos > 0 ? 'Ajuste manual' : 'Penalización manual')
@@ -32,13 +33,12 @@ export async function PATCH(
       })
     }
 
-    // Canje: detecta el delta y loggea historial
     if (camposDirectos.puntos_canjeados !== undefined) {
       const { data: actual } = await admin
         .from('clientes')
         .select('puntos_canjeados')
         .eq('id', params.id)
-        .single()
+        .maybeSingle()
 
       const delta = (camposDirectos.puntos_canjeados as number) - (actual?.puntos_canjeados ?? 0)
       if (delta > 0) {
@@ -50,14 +50,21 @@ export async function PATCH(
       }
     }
 
-    const { data, error } = await admin
+    const { error: updateError } = await admin
       .from('clientes')
       .update(camposDirectos)
       .eq('id', params.id)
-      .select()
-      .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+
+    const { data, error: selectError } = await admin
+      .from('clientes')
+      .select('*')
+      .eq('id', params.id)
+      .maybeSingle()
+
+    if (selectError) return NextResponse.json({ error: selectError.message }, { status: 500 })
+    if (!data) return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 })
     return NextResponse.json(data)
   } catch (e: unknown) {
     const mensaje = e instanceof Error ? e.message : 'Error inesperado'
@@ -69,13 +76,10 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const admin = crearClienteAdmin()
-    const { error } = await admin
-      .from('clientes')
-      .delete()
-      .eq('id', params.id)
+  const admin = crearClienteAdmin()
 
+  try {
+    const { error } = await admin.rpc('eliminar_cliente', { p_id: params.id })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e: unknown) {

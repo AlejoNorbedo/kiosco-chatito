@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Cliente, HistorialPunto } from '@/types'
 
 type ConfigFidelizacion = {
@@ -19,9 +19,10 @@ export default function TabClientes() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [config, setConfig] = useState<ConfigFidelizacion>({ puntos_para_canje: 0, mensaje_canje: '' })
   const [busqueda, setBusqueda] = useState('')
-  const [cargando, setCargando] = useState(true)
+  const [cargandoInicial, setCargandoInicial] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
   const [editando, setEditando] = useState<Cliente | null>(null)
+  const [errorGuardando, setErrorGuardando] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [eliminando, setEliminando] = useState<string | null>(null)
   const [canjeando, setCanjeando] = useState<string | null>(null)
@@ -29,24 +30,18 @@ export default function TabClientes() {
   const [historialData, setHistorialData] = useState<Record<string, HistorialPunto[]>>({})
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
 
-  useEffect(() => {
-    cargar()
-  }, [])
-
-  async function cargar() {
-    setCargando(true)
+  const cargar = useCallback(async () => {
     setErrorMsg('')
     try {
       const [resClientes, resConfig] = await Promise.all([
-        fetch('/api/admin/clientes'),
-        fetch('/api/admin/configuracion'),
+        fetch('/api/admin/clientes', { cache: 'no-store' }),
+        fetch('/api/admin/configuracion', { cache: 'no-store' }),
       ])
       const clientesData = await resClientes.json()
       const configData = await resConfig.json()
 
       if (!resClientes.ok) {
         setErrorMsg(`Error (${resClientes.status}): ${clientesData?.error ?? 'Error desconocido'}`)
-        setCargando(false)
         return
       }
       if (Array.isArray(clientesData)) setClientes(clientesData)
@@ -59,8 +54,12 @@ export default function TabClientes() {
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Error de red')
     }
-    setCargando(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    setCargandoInicial(true)
+    cargar().finally(() => setCargandoInicial(false))
+  }, [cargar])
 
   async function abrirHistorial(clienteId: string) {
     if (historialAbierto === clienteId) {
@@ -68,9 +67,9 @@ export default function TabClientes() {
       return
     }
     setHistorialAbierto(clienteId)
-    if (historialData[clienteId]) return // ya cargado
+    if (historialData[clienteId]) return
     setCargandoHistorial(true)
-    const res = await fetch(`/api/admin/clientes/${clienteId}/historial`)
+    const res = await fetch(`/api/admin/clientes/${clienteId}/historial`, { cache: 'no-store' })
     if (res.ok) {
       const data = await res.json()
       setHistorialData((prev) => ({ ...prev, [clienteId]: data }))
@@ -81,6 +80,7 @@ export default function TabClientes() {
   async function guardarEdicion(form: FormEditar) {
     if (!editando) return
     setGuardando(true)
+    setErrorGuardando(null)
 
     const ajuste = parseInt(form.ajuste_puntos) || 0
     const body: Record<string, unknown> = {
@@ -92,17 +92,23 @@ export default function TabClientes() {
       body.concepto = form.concepto.trim()
     }
 
-    const res = await fetch(`/api/admin/clientes/${editando.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (res.ok) {
-      const actualizado = await res.json()
-      setClientes((prev) => prev.map((c) => (c.id === actualizado.id ? actualizado : c)))
-      // Invalidar historial para que se recargue
-      setHistorialData((prev) => { const n = { ...prev }; delete n[editando.id]; return n })
-      setEditando(null)
+    try {
+      const res = await fetch(`/api/admin/clientes/${editando.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const clienteId = editando.id
+        setEditando(null)
+        setHistorialData((prev) => { const n = { ...prev }; delete n[clienteId]; return n })
+        await cargar()
+      } else {
+        const json = await res.json().catch(() => ({}))
+        setErrorGuardando(json.error ?? `Error ${res.status} al guardar`)
+      }
+    } catch {
+      setErrorGuardando('Error de red. Verificá tu conexión.')
     }
     setGuardando(false)
   }
@@ -110,8 +116,17 @@ export default function TabClientes() {
   async function eliminar(cliente: Cliente) {
     if (!confirm(`¿Eliminar a ${cliente.nombre}? Se borrarán todos sus puntos e historial. Esta acción no se puede deshacer.`)) return
     setEliminando(cliente.id)
-    const res = await fetch(`/api/admin/clientes/${cliente.id}`, { method: 'DELETE' })
-    if (res.ok) setClientes((prev) => prev.filter((c) => c.id !== cliente.id))
+    try {
+      const res = await fetch(`/api/admin/clientes/${cliente.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        await cargar()
+      } else {
+        const json = await res.json().catch(() => ({}))
+        alert(`Error eliminando: ${json.error ?? `HTTP ${res.status}`}`)
+      }
+    } catch (e) {
+      alert(`Error de red: ${e instanceof Error ? e.message : String(e)}`)
+    }
     setEliminando(null)
   }
 
@@ -121,16 +136,17 @@ export default function TabClientes() {
     if (!confirm(`¿Canjear ${config.puntos_para_canje} puntos de ${cliente.nombre} por ${descripcion}?`)) return
 
     setCanjeando(cliente.id)
-    const res = await fetch(`/api/admin/clientes/${cliente.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ puntos_canjeados: cliente.puntos_canjeados + config.puntos_para_canje }),
-    })
-    if (res.ok) {
-      const actualizado = await res.json()
-      setClientes((prev) => prev.map((c) => (c.id === actualizado.id ? actualizado : c)))
-      setHistorialData((prev) => { const n = { ...prev }; delete n[cliente.id]; return n })
-    }
+    try {
+      const res = await fetch(`/api/admin/clientes/${cliente.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ puntos_canjeados: cliente.puntos_canjeados + config.puntos_para_canje }),
+      })
+      if (res.ok) {
+        setHistorialData((prev) => { const n = { ...prev }; delete n[cliente.id]; return n })
+        await cargar()
+      }
+    } catch { /* silent */ }
     setCanjeando(null)
   }
 
@@ -140,7 +156,7 @@ export default function TabClientes() {
     return c.nombre.toLowerCase().includes(q) || c.telefono.includes(q)
   })
 
-  if (cargando) {
+  if (cargandoInicial) {
     return (
       <div className="flex flex-col gap-2">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -155,7 +171,11 @@ export default function TabClientes() {
       <div className="bg-red-50 border border-red-200 rounded-xl p-4">
         <p className="text-sm font-semibold text-red-700 mb-1">Error cargando clientes</p>
         <p className="text-xs text-red-600 font-mono break-all">{errorMsg}</p>
-        <button onClick={cargar} className="mt-3 text-xs font-semibold text-red-700 underline">
+        <button
+          type="button"
+          onClick={() => { setCargandoInicial(true); cargar().finally(() => setCargandoInicial(false)) }}
+          className="mt-3 text-xs font-semibold text-red-700 underline"
+        >
           Reintentar
         </button>
       </div>
@@ -195,7 +215,6 @@ export default function TabClientes() {
             return (
               <div key={cliente.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                 <div className="p-4">
-                  {/* Cabecera: nombre + acciones */}
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-800 text-sm">{cliente.nombre}</p>
@@ -210,10 +229,10 @@ export default function TabClientes() {
                       </div>
                     </div>
 
-                    {/* Botones de acción */}
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {puedeCanjar && (
                         <button
+                          type="button"
                           onClick={() => canjear(cliente)}
                           disabled={canjeando === cliente.id}
                           className="bg-[#CC0000] hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
@@ -222,13 +241,15 @@ export default function TabClientes() {
                         </button>
                       )}
                       <button
-                        onClick={() => setEditando(cliente)}
+                        type="button"
+                        onClick={() => { setEditando(cliente); setErrorGuardando(null) }}
                         title="Editar cliente"
                         className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-sm transition-colors"
                       >
                         ✏️
                       </button>
                       <button
+                        type="button"
                         onClick={() => abrirHistorial(cliente.id)}
                         title="Ver historial"
                         className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${
@@ -240,6 +261,7 @@ export default function TabClientes() {
                         ↕
                       </button>
                       <button
+                        type="button"
                         onClick={() => eliminar(cliente)}
                         disabled={eliminando === cliente.id}
                         title="Eliminar cliente"
@@ -251,7 +273,6 @@ export default function TabClientes() {
                   </div>
                 </div>
 
-                {/* Historial desplegable */}
                 {historialVisible && (
                   <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -292,13 +313,13 @@ export default function TabClientes() {
         </div>
       )}
 
-      {/* Modal de edición */}
       {editando && (
         <ModalEditar
           cliente={editando}
           onGuardar={guardarEdicion}
-          onCerrar={() => setEditando(null)}
+          onCerrar={() => { setEditando(null); setErrorGuardando(null) }}
           guardando={guardando}
+          error={errorGuardando}
         />
       )}
     </div>
@@ -310,11 +331,13 @@ function ModalEditar({
   onGuardar,
   onCerrar,
   guardando,
+  error,
 }: {
   cliente: Cliente
   onGuardar: (form: FormEditar) => void
   onCerrar: () => void
   guardando: boolean
+  error: string | null
 }) {
   const [form, setForm] = useState<FormEditar>({
     nombre: cliente.nombre,
@@ -336,6 +359,7 @@ function ModalEditar({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="font-bold text-gray-800">Editar cliente</h3>
           <button
+            type="button"
             onClick={onCerrar}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-xl"
           >
@@ -381,7 +405,8 @@ function ModalEditar({
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#CC0000]"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Puntos actuales: <strong>{cliente.puntos_acumulados - cliente.puntos_canjeados} disponibles</strong>
+              Puntos actuales:{' '}
+              <strong>{cliente.puntos_acumulados - cliente.puntos_canjeados} disponibles</strong>
               {ajuste !== 0 && (
                 <span className={ajuste > 0 ? ' text-green-600' : ' text-red-500'}>
                   {' → '}{Math.max(0, (cliente.puntos_acumulados + ajuste) - cliente.puntos_canjeados)} disponibles
@@ -406,17 +431,25 @@ function ModalEditar({
               />
             </div>
           )}
+
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
         </div>
 
         <div className="px-5 pb-5 flex gap-2">
           <button
+            type="button"
             onClick={onCerrar}
             className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
           >
             Cancelar
           </button>
           <button
-            onClick={() => !requiereConcepto && onGuardar(form)}
+            type="button"
+            onClick={() => { if (!requiereConcepto) onGuardar(form) }}
             disabled={guardando || requiereConcepto}
             className="flex-1 bg-[#CC0000] hover:bg-red-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-xl transition-colors"
           >

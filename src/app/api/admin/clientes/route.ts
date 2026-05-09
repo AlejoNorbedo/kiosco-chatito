@@ -4,7 +4,6 @@ import { crearClienteAdmin } from '@/lib/supabaseAdmin'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  console.log('[admin/clientes] GET inicio')
   try {
     const admin = crearClienteAdmin()
     const { data, error } = await admin
@@ -12,17 +11,10 @@ export async function GET() {
       .select('*')
       .order('puntos_acumulados', { ascending: false })
 
-    console.log('[admin/clientes] resultado:', {
-      cantidad: data?.length ?? 'null',
-      error: error?.message ?? null,
-      errorCode: error?.code ?? null,
-    })
-
     if (error) return NextResponse.json({ error: error.message, code: error.code }, { status: 500 })
     return NextResponse.json(data ?? [])
   } catch (e: unknown) {
     const mensaje = e instanceof Error ? e.message : 'Error inesperado'
-    console.error('[admin/clientes] excepcion:', mensaje)
     return NextResponse.json({ error: mensaje }, { status: 500 })
   }
 }

@@ -13,14 +13,14 @@ export function crearClienteAdmin() {
 
   return createClient(url, key, {
     auth: {
-      // Crítico en serverless: deshabilitar refresh y persistencia de sesión
       autoRefreshToken: false,
       persistSession: false,
     },
     global: {
+      // cache: 'no-store' evita que Next.js cachée las respuestas de Supabase
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: 'no-store' }),
       headers: {
-        // Forzar el Bearer explícito — necesario con el nuevo formato de keys
-        // de Supabase (sb_secret_*) para que el RLS sea bypasseado correctamente
         Authorization: `Bearer ${key}`,
       },
     },
