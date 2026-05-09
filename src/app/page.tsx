@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useCarrito } from '@/hooks/useCarrito'
 import ProductoCard from '@/components/ProductoCard'
 import Carrito from '@/components/Carrito'
-import BannerInstalacion from '@/components/BannerInstalacion'
+import ModalInstalacion from '@/components/ModalInstalacion'
 import type { Producto } from '@/types'
 
 type OrdenProductos = 'creacion' | 'az' | 'za' | 'menor_precio' | 'mayor_precio'
@@ -247,7 +247,7 @@ export default function PaginaCatalogo() {
         />
       )}
 
-      <BannerInstalacion />
+      <ModalInstalacion />
     </main>
   )
 }
