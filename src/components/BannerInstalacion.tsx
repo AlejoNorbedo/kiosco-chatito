@@ -11,17 +11,23 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+type WindowConPrompt = Window & {
+  __pwaInstallPrompt?: BeforeInstallPromptEvent
+}
+
 export default function BannerInstalacion() {
   const [visible, setVisible] = useState(false)
   const [esIOS, setEsIOS] = useState(false)
   const promptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
+    // No mostrar si ya está instalada como PWA
     const yaInstalada =
       window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as Navigator & { standalone?: boolean }).standalone === true
     if (yaInstalada) return
 
+    // No mostrar si fue descartado recientemente
     const descartado = localStorage.getItem(STORAGE_KEY)
     if (descartado) {
       const transcurrido = Date.now() - parseInt(descartado, 10)
@@ -31,23 +37,27 @@ export default function BannerInstalacion() {
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
     setEsIOS(ios)
 
-    const handlerPrompt = (e: Event) => {
-      e.preventDefault()
-      promptRef.current = e as BeforeInstallPromptEvent
+    if (!ios) {
+      // El script inline en layout.tsx captura el evento antes de que React hidrate.
+      // Si ya está guardado en window lo tomamos directamente; si no, escuchamos el evento.
+      const win = window as WindowConPrompt
+      if (win.__pwaInstallPrompt) {
+        promptRef.current = win.__pwaInstallPrompt
+      } else {
+        const handler = (e: Event) => {
+          e.preventDefault()
+          promptRef.current = e as BeforeInstallPromptEvent
+        }
+        window.addEventListener('beforeinstallprompt', handler)
+        return () => window.removeEventListener('beforeinstallprompt', handler)
+      }
     }
-    window.addEventListener('beforeinstallprompt', handlerPrompt)
 
-    // Mostrar el banner a los 10 segundos:
-    // - iOS siempre (muestra instrucciones manuales)
-    // - otros: solo si el navegador disparó beforeinstallprompt
     const timer = setTimeout(() => {
       if (ios || promptRef.current) setVisible(true)
     }, 10000)
 
-    return () => {
-      clearTimeout(timer)
-      window.removeEventListener('beforeinstallprompt', handlerPrompt)
-    }
+    return () => clearTimeout(timer)
   }, [])
 
   function cerrar() {
@@ -61,6 +71,7 @@ export default function BannerInstalacion() {
     await prompt.prompt()
     const { outcome } = await prompt.userChoice
     promptRef.current = null
+    ;(window as WindowConPrompt).__pwaInstallPrompt = undefined
     if (outcome === 'accepted') setVisible(false)
   }
 

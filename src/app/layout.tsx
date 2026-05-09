@@ -20,6 +20,12 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Chatito" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="apple-touch-icon" href="/logo.png" />
+        {/* Captura beforeinstallprompt antes de que React hidrate para no perder el evento */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__pwaInstallPrompt=e});`,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>
