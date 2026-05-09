@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import FormularioProducto from '@/components/admin/FormularioProducto'
 import CierreCaja from '@/components/admin/CierreCaja'
@@ -8,6 +8,18 @@ import TabClientes from '@/components/admin/TabClientes'
 import type { Producto, Pedido, Configuracion, EstadoPedido } from '@/types'
 
 type Tab = 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'configuracion'
+type OrdenProductos = 'creacion' | 'az' | 'za' | 'menor_precio' | 'mayor_precio'
+
+function sortearProductos(lista: Producto[], orden: OrdenProductos): Producto[] {
+  const c = [...lista]
+  switch (orden) {
+    case 'az': return c.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    case 'za': return c.sort((a, b) => b.nombre.localeCompare(a.nombre, 'es'))
+    case 'menor_precio': return c.sort((a, b) => a.precio - b.precio)
+    case 'mayor_precio': return c.sort((a, b) => b.precio - a.precio)
+    default: return c.sort((a, b) => a.created_at.localeCompare(b.created_at))
+  }
+}
 
 const TAB_LABELS: Record<Tab, string> = {
   productos: 'Productos',
@@ -46,6 +58,11 @@ export default function PaginaAdmin() {
   const [error, setError] = useState('')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [productoEditando, setProductoEditando] = useState<Producto | undefined>()
+  const [ordenProductos, setOrdenProductos] = useState<OrdenProductos>('creacion')
+  const productosSorted = useMemo(
+    () => sortearProductos(productos, ordenProductos),
+    [productos, ordenProductos]
+  )
   const [filtroEstado, setFiltroEstado] = useState<EstadoPedido | 'todos'>('todos')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [mensajeConfig, setMensajeConfig] = useState('')
@@ -211,12 +228,25 @@ export default function PaginaAdmin() {
           <>
             <div className="flex justify-between items-center mb-4">
               <p className="text-sm text-gray-500">{productos.length} productos</p>
-              <button
-                onClick={abrirNuevo}
-                className="bg-[#CC0000] hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors"
-              >
-                + Agregar
-              </button>
+              <div className="flex items-center gap-2">
+                <select
+                  value={ordenProductos}
+                  onChange={(e) => setOrdenProductos(e.target.value as OrdenProductos)}
+                  className="text-xs font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl px-3 py-2 outline-none transition-colors cursor-pointer"
+                >
+                  <option value="creacion">Orden de carga</option>
+                  <option value="az">A → Z</option>
+                  <option value="za">Z → A</option>
+                  <option value="menor_precio">Menor precio</option>
+                  <option value="mayor_precio">Mayor precio</option>
+                </select>
+                <button
+                  onClick={abrirNuevo}
+                  className="bg-[#CC0000] hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors"
+                >
+                  + Agregar
+                </button>
+              </div>
             </div>
 
             {cargando && (
@@ -233,7 +263,7 @@ export default function PaginaAdmin() {
 
             {!cargando && !error && (
               <div className="flex flex-col gap-2">
-                {productos.map((producto) => (
+                {productosSorted.map((producto) => (
                   <div
                     key={producto.id}
                     className={`bg-white rounded-xl border p-4 flex items-center gap-3 transition-opacity ${

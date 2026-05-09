@@ -8,11 +8,25 @@ import ProductoCard from '@/components/ProductoCard'
 import Carrito from '@/components/Carrito'
 import type { Producto } from '@/types'
 
+type OrdenProductos = 'creacion' | 'az' | 'za' | 'menor_precio' | 'mayor_precio'
+
+function sortearProductos(lista: Producto[], orden: OrdenProductos): Producto[] {
+  const c = [...lista]
+  switch (orden) {
+    case 'az': return c.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    case 'za': return c.sort((a, b) => b.nombre.localeCompare(a.nombre, 'es'))
+    case 'menor_precio': return c.sort((a, b) => a.precio - b.precio)
+    case 'mayor_precio': return c.sort((a, b) => b.precio - a.precio)
+    default: return c.sort((a, b) => a.created_at.localeCompare(b.created_at))
+  }
+}
+
 export default function PaginaCatalogo() {
   const [productos, setProductos] = useState<Producto[]>([])
   const [cargandoProductos, setCargandoProductos] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [categoriaActiva, setCategoriaActiva] = useState<string>('Todos')
+  const [orden, setOrden] = useState<OrdenProductos>('creacion')
   const [carritoAbierto, setCarritoAbierto] = useState(false)
 
   const { items, agregar, quitar, vaciar, totalItems, totalPrecio, cargando: cargandoCarrito } =
@@ -28,8 +42,7 @@ export default function PaginaCatalogo() {
         .from('productos')
         .select('*')
         .eq('activo', true)
-        .order('categoria')
-        .order('nombre')
+        .order('created_at', { ascending: true })
 
       if (err) {
         setError('No se pudieron cargar los productos. Intentá de nuevo.')
@@ -47,9 +60,10 @@ export default function PaginaCatalogo() {
   }, [productos])
 
   const productosFiltrados = useMemo(() => {
-    if (categoriaActiva === 'Todos') return productos
-    return productos.filter((p) => p.categoria === categoriaActiva)
-  }, [productos, categoriaActiva])
+    const filtrados =
+      categoriaActiva === 'Todos' ? productos : productos.filter((p) => p.categoria === categoriaActiva)
+    return sortearProductos(filtrados, orden)
+  }, [productos, categoriaActiva, orden])
 
   const cargando = cargandoProductos || cargandoCarrito
 
@@ -132,7 +146,24 @@ export default function PaginaCatalogo() {
       </header>
 
       {/* Grilla de productos */}
-      <div className="max-w-2xl mx-auto px-4 pt-5">
+      <div className="max-w-2xl mx-auto px-4 pt-4">
+        {/* Selector de orden */}
+        {!cargando && !error && (
+          <div className="flex justify-end mb-4">
+            <select
+              value={orden}
+              onChange={(e) => setOrden(e.target.value as OrdenProductos)}
+              className="text-xs font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl px-3 py-2 outline-none transition-colors cursor-pointer"
+            >
+              <option value="creacion">Orden de carga</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+              <option value="menor_precio">Menor precio</option>
+              <option value="mayor_precio">Mayor precio</option>
+            </select>
+          </div>
+        )}
+
         {/* Skeleton de carga */}
         {cargando && (
           <div className="grid grid-cols-2 gap-4">

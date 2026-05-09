@@ -43,8 +43,7 @@ export default function Carrito({
       .from('configuracion')
       .select('*')
       .single()
-      .then(({ data, error }) => {
-        console.log('[carrito] config DB:', { data, error })
+      .then(({ data }) => {
         if (data) setConfig((prev) => ({ ...prev, ...data }))
       })
   }, [])
@@ -124,48 +123,30 @@ export default function Carrito({
   }
 
   function handleEnviar(datos: DatosCheckout, totalFinal: number) {
-    console.log('[carrito] handleEnviar inicio', {
-      puntos_por_monto: config.puntos_por_monto,
-      telefono: datos.telefono,
-      nombre: datos.nombre,
-      totalFinal,
-    })
-
     const itemsParaGuardar = items.map((i) => ({
       nombre: i.producto.nombre,
       precio: i.producto.precio,
       cantidad: i.cantidad,
     }))
+    const puntos_generados =
+      config.puntos_por_monto > 0 && datos.telefono.trim()
+        ? Math.floor(totalFinal / config.puntos_por_monto)
+        : 0
     supabase
       .from('pedidos')
-      .insert({ items: itemsParaGuardar, total: totalFinal, datos_cliente: datos })
+      .insert({ items: itemsParaGuardar, total: totalFinal, datos_cliente: datos, puntos_generados })
       .then()
 
-    const condicion = config.puntos_por_monto > 0 && !!datos.telefono.trim()
-    console.log('[carrito] condicion fidelizacion:', condicion, {
-      pxm_gt_0: config.puntos_por_monto > 0,
-      telefono_filled: !!datos.telefono.trim(),
-    })
-
-    if (condicion) {
-      const payload = {
-        telefono: datos.telefono.trim(),
-        nombre: datos.nombre.trim(),
-        monto: totalFinal,
-      }
-      console.log('[carrito] llamando /api/fidelizacion con:', payload)
+    if (config.puntos_por_monto > 0 && datos.telefono.trim()) {
       fetch('/api/fidelizacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-        .then(async (res) => {
-          const json = await res.json().catch(() => null)
-          console.log('[carrito] fidelizacion respuesta:', res.status, json)
-        })
-        .catch((err) => {
-          console.error('[carrito] fidelizacion error de red:', err)
-        })
+        body: JSON.stringify({
+          telefono: datos.telefono.trim(),
+          nombre: datos.nombre.trim(),
+          monto: totalFinal,
+        }),
+      }).catch(() => {})
     }
 
     window.open(`https://wa.me/${numeroWhatsApp}?text=${armarMensajeWhatsApp(datos, totalFinal)}`, '_blank')

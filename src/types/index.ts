@@ -6,6 +6,7 @@ export type Producto = {
   imagen_url: string | null
   activo: boolean
   stock: number
+  created_at: string
 }
 
 export type ItemCarrito = {
@@ -28,6 +29,7 @@ export type Pedido = {
   created_at: string
   datos_cliente?: DatosCheckout
   estado: EstadoPedido
+  puntos_generados: number
 }
 
 export type Configuracion = {
@@ -47,6 +49,14 @@ export type Cliente = {
   nombre: string
   puntos_acumulados: number
   puntos_canjeados: number
+  created_at: string
+}
+
+export type HistorialPunto = {
+  id: string
+  cliente_id: string
+  concepto: string
+  puntos: number
   created_at: string
 }
 
