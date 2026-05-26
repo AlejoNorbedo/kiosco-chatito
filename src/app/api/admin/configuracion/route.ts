@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const admin = crearClienteAdmin()
   const { data, error } = await admin.from('configuracion').select('*').single()

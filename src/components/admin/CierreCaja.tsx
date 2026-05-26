@@ -107,7 +107,7 @@ export default function CierreCaja() {
   const totalSubtotalProductos = pedidos.reduce((acc, p) => acc + calcSubtotalItems(p), 0)
   const totalEnvios = pedidos.reduce((acc, p) => acc + calcCostoEnvio(p), 0)
   const totalGeneral = pedidos.reduce((acc, p) => acc + p.total, 0)
-  const pedidosEfectivo = pedidos.filter((p) => p.datos_cliente?.metodoPago !== 'transferencia')
+  const pedidosEfectivo = pedidos.filter((p) => p.datos_cliente?.metodoPago === 'efectivo')
   const pedidosTransferencia = pedidos.filter((p) => p.datos_cliente?.metodoPago === 'transferencia')
   const totalEfectivo = pedidosEfectivo.reduce((acc, p) => acc + p.total, 0)
   const totalTransferencia = pedidosTransferencia.reduce((acc, p) => acc + p.total, 0)

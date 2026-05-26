@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.json({ ok: true })
   response.cookies.set('empleada_session', password, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7,
     path: '/',

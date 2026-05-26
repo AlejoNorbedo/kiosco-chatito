@@ -1,21 +1,25 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
 
+export const dynamic = 'force-dynamic'
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const admin = crearClienteAdmin()
-    const datos = await request.json()
+    const { estado, ...resto } = await request.json()
+    const datos: Record<string, unknown> = { ...resto }
+    if (estado !== undefined) datos.estado = estado
 
     // Cuando se cancela un pedido, restar los puntos que generó al cliente
-    if (datos.estado === 'cancelado') {
+    if (estado === 'cancelado') {
       const { data: pedidoActual } = await admin
         .from('pedidos')
         .select('estado, puntos_generados, datos_cliente')
         .eq('id', params.id)
-        .single()
+        .maybeSingle()
 
       const yaCancelado = pedidoActual?.estado === 'cancelado'
       const puntosARestar = pedidoActual?.puntos_generados ?? 0
@@ -30,11 +34,7 @@ export async function PATCH(
 
         if (cliente) {
           const nuevos = Math.max(0, cliente.puntos_acumulados - puntosARestar)
-          await admin
-            .from('clientes')
-            .update({ puntos_acumulados: nuevos })
-            .eq('id', cliente.id)
-
+          await admin.from('clientes').update({ puntos_acumulados: nuevos }).eq('id', cliente.id)
           await admin.from('historial_puntos').insert({
             cliente_id: cliente.id,
             concepto: 'Pedido cancelado',
@@ -49,9 +49,10 @@ export async function PATCH(
       .update(datos)
       .eq('id', params.id)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
     return NextResponse.json(data)
   } catch (e: unknown) {
     const mensaje = e instanceof Error ? e.message : 'Error inesperado'
