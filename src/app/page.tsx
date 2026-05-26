@@ -100,9 +100,9 @@ export default function PaginaCatalogo() {
               <Image
                 src="/logo.png"
                 alt="Logo Kiosco Chatito"
-                width={48}
-                height={48}
-                className="rounded-full flex-shrink-0 border-2 border-white/20"
+                width={52}
+                height={52}
+                className="rounded-2xl flex-shrink-0 shadow-md"
                 priority
               />
               <div className="min-w-0">
