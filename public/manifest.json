@@ -9,15 +9,29 @@
   "icons": [
     {
       "src": "/logo.png",
-      "sizes": "225x225",
+      "sizes": "1414x1414",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/logo.png",
-      "sizes": "225x225",
+      "sizes": "1414x1414",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Panel Admin",
+      "short_name": "Admin",
+      "url": "/admin",
+      "icons": [{ "src": "/logo.png", "sizes": "1414x1414", "type": "image/png" }]
+    },
+    {
+      "name": "Panel Empleadas",
+      "short_name": "Empleadas",
+      "url": "/empleada",
+      "icons": [{ "src": "/logo.png", "sizes": "1414x1414", "type": "image/png" }]
     }
   ]
 }
