@@ -4,6 +4,11 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Kiosco Chatito',
   description: 'Pedí tus productos y recibí por WhatsApp',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+    shortcut: '/logo.png',
+  },
 }
 
 export default function RootLayout({
@@ -20,6 +25,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Chatito" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="apple-touch-icon" href="/logo.png" />
+        <link rel="icon" type="image/png" href="/logo.png" />
         {/* Captura beforeinstallprompt antes de que React hidrate para no perder el evento */}
         <script
           dangerouslySetInnerHTML={{

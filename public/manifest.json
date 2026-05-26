@@ -12,6 +12,12 @@
       "sizes": "225x225",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "225x225",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
