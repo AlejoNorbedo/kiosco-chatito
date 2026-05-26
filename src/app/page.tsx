@@ -66,6 +66,21 @@ export default function PaginaCatalogo() {
     return sortearProductos(filtrados, orden)
   }, [productos, categoriaActiva, orden])
 
+  const productosAgrupados = useMemo(() => {
+    if (categoriaActiva === 'Todos') return null
+    const tienenSubcat = productosFiltrados.some((p) => p.subcategoria)
+    if (!tienenSubcat) return null
+    const sinSubcat = productosFiltrados.filter((p) => !p.subcategoria)
+    const grupos = new Map<string, Producto[]>()
+    for (const p of productosFiltrados) {
+      if (p.subcategoria) {
+        if (!grupos.has(p.subcategoria)) grupos.set(p.subcategoria, [])
+        grupos.get(p.subcategoria)!.push(p)
+      }
+    }
+    return { sinSubcat, grupos }
+  }, [productosFiltrados, categoriaActiva])
+
   const cargando = cargandoProductos || cargandoCarrito
 
   return (
@@ -202,17 +217,53 @@ export default function PaginaCatalogo() {
         )}
 
         {!cargando && !error && productosFiltrados.length > 0 && (
-          <div className="grid grid-cols-2 gap-4">
-            {productosFiltrados.map((producto) => (
-              <ProductoCard
-                key={producto.id}
-                producto={producto}
-                itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
-                onAgregar={agregar}
-                onQuitar={quitar}
-              />
-            ))}
-          </div>
+          productosAgrupados ? (
+            <div className="flex flex-col gap-6">
+              {productosAgrupados.sinSubcat.length > 0 && (
+                <div className="grid grid-cols-2 gap-4">
+                  {productosAgrupados.sinSubcat.map((producto) => (
+                    <ProductoCard
+                      key={producto.id}
+                      producto={producto}
+                      itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
+                      onAgregar={agregar}
+                      onQuitar={quitar}
+                    />
+                  ))}
+                </div>
+              )}
+              {Array.from(productosAgrupados.grupos.entries()).map(([subcategoria, prods]) => (
+                <div key={subcategoria}>
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">
+                    {subcategoria}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {prods.map((producto) => (
+                      <ProductoCard
+                        key={producto.id}
+                        producto={producto}
+                        itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
+                        onAgregar={agregar}
+                        onQuitar={quitar}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {productosFiltrados.map((producto) => (
+                <ProductoCard
+                  key={producto.id}
+                  producto={producto}
+                  itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
+                  onAgregar={agregar}
+                  onQuitar={quitar}
+                />
+              ))}
+            </div>
+          )
         )}
       </div>
 

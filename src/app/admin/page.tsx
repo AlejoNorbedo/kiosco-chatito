@@ -63,6 +63,10 @@ export default function PaginaAdmin() {
     () => sortearProductos(productos, ordenProductos),
     [productos, ordenProductos]
   )
+  const subcategoriasExistentes = useMemo(
+    () => Array.from(new Set(productos.map((p) => p.subcategoria).filter(Boolean))) as string[],
+    [productos]
+  )
   const [filtroEstado, setFiltroEstado] = useState<EstadoPedido | 'todos'>('todos')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [mensajeConfig, setMensajeConfig] = useState('')
@@ -275,7 +279,7 @@ export default function PaginaAdmin() {
                         {producto.nombre}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {producto.categoria} · ${producto.precio.toLocaleString('es-AR')} ·{' '}
+                        {producto.categoria}{producto.subcategoria ? ` › ${producto.subcategoria}` : ''} · ${producto.precio.toLocaleString('es-AR')} ·{' '}
                         <span className={producto.stock === 0 ? 'text-red-500 font-medium' : ''}>
                           Stock: {producto.stock}
                         </span>
@@ -645,6 +649,7 @@ export default function PaginaAdmin() {
           producto={productoEditando}
           onGuardar={guardarProducto}
           onCerrar={cerrarModal}
+          subcategoriasExistentes={subcategoriasExistentes}
         />
       )}
     </main>

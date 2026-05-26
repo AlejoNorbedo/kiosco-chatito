@@ -3,6 +3,7 @@ export type Producto = {
   nombre: string
   precio: number
   categoria: string
+  subcategoria: string | null
   imagen_url: string | null
   activo: boolean
   stock: number

@@ -7,6 +7,7 @@ type Campos = {
   nombre: string
   precio: string
   categoria: string
+  subcategoria: string
   stock: string
   imagen_url: string
   activo: boolean
@@ -16,13 +17,15 @@ type Props = {
   producto?: Producto
   onGuardar: (datos: Partial<Producto>) => Promise<void>
   onCerrar: () => void
+  subcategoriasExistentes?: string[]
 }
 
-export default function FormularioProducto({ producto, onGuardar, onCerrar }: Props) {
+export default function FormularioProducto({ producto, onGuardar, onCerrar, subcategoriasExistentes = [] }: Props) {
   const [campos, setCampos] = useState<Campos>({
     nombre: producto?.nombre ?? '',
     precio: producto?.precio?.toString() ?? '',
     categoria: producto?.categoria ?? '',
+    subcategoria: producto?.subcategoria ?? '',
     stock: producto?.stock?.toString() ?? '0',
     imagen_url: producto?.imagen_url ?? '',
     activo: producto?.activo ?? true,
@@ -30,7 +33,6 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
-  // Estado de imagen
   const [previewLocal, setPreviewLocal] = useState<string | null>(null)
   const [subiendo, setSubiendo] = useState(false)
   const [errorImagen, setErrorImagen] = useState('')
@@ -54,9 +56,7 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
     }
 
     setErrorImagen('')
-    // Preview local inmediato mientras sube en segundo plano
     setPreviewLocal(URL.createObjectURL(archivo))
-
     setSubiendo(true)
     try {
       const form = new FormData()
@@ -111,6 +111,7 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
         nombre: campos.nombre.trim(),
         precio,
         categoria: campos.categoria.trim(),
+        subcategoria: campos.subcategoria.trim() || null,
         stock,
         imagen_url: campos.imagen_url.trim() || null,
         activo: campos.activo,
@@ -134,11 +135,10 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
         </div>
 
         <form onSubmit={enviar} className="overflow-y-auto p-5 flex flex-col gap-4">
-          {/* Bloque de imagen */}
+          {/* Imagen */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Imagen</label>
 
-            {/* Preview */}
             {imagenActual && (
               <div className="relative mb-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -147,14 +147,12 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
                   alt="Preview del producto"
                   className="w-full h-44 object-cover rounded-xl border border-gray-200"
                 />
-                {/* Overlay de carga */}
                 {subiendo && (
                   <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-xl gap-2">
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     <span className="text-white text-xs font-medium">Subiendo...</span>
                   </div>
                 )}
-                {/* Botón quitar (solo cuando no está subiendo) */}
                 {!subiendo && (
                   <button
                     type="button"
@@ -167,32 +165,18 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
               </div>
             )}
 
-            {/* Input oculto */}
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              onChange={manejarArchivo}
-              className="hidden"
-            />
+            <input ref={inputRef} type="file" accept="image/*" onChange={manejarArchivo} className="hidden" />
 
-            {/* Botón de subida */}
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={subiendo}
               className="w-full border-2 border-dashed border-gray-200 hover:border-[#CC0000] rounded-xl py-3 text-sm text-gray-400 hover:text-[#CC0000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {subiendo
-                ? 'Subiendo imagen...'
-                : imagenActual
-                  ? '📷 Cambiar imagen'
-                  : '📷 Subir imagen'}
+              {subiendo ? 'Subiendo imagen...' : imagenActual ? '📷 Cambiar imagen' : '📷 Subir imagen'}
             </button>
 
-            {errorImagen && (
-              <p className="text-red-500 text-xs mt-1">{errorImagen}</p>
-            )}
+            {errorImagen && <p className="text-red-500 text-xs mt-1">{errorImagen}</p>}
           </div>
 
           <Campo label="Nombre" requerido>
@@ -210,10 +194,31 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar }: Pr
               type="text"
               value={campos.categoria}
               onChange={(e) => actualizar('categoria', e.target.value)}
-              placeholder="Bebidas, Golosinas..."
+              placeholder="Bebidas, Golosinas, Cigarrillos..."
               required
               className={estiloInput}
             />
+          </Campo>
+
+          <Campo label="Subcategoría">
+            <input
+              type="text"
+              list="subcategorias-list"
+              value={campos.subcategoria}
+              onChange={(e) => actualizar('subcategoria', e.target.value)}
+              placeholder="Marlboro, Coca-Cola... (opcional)"
+              className={estiloInput}
+            />
+            {subcategoriasExistentes.length > 0 && (
+              <datalist id="subcategorias-list">
+                {subcategoriasExistentes.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            )}
+            <p className="text-xs text-gray-400 mt-1">
+              Agrupa productos dentro de una misma categoría
+            </p>
           </Campo>
 
           <div className="grid grid-cols-2 gap-3">
