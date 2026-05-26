@@ -67,6 +67,12 @@ export default function PaginaAdmin() {
     () => Array.from(new Set(productos.map((p) => p.subcategoria).filter(Boolean))) as string[],
     [productos]
   )
+  const [busquedaProductos, setBusquedaProductos] = useState('')
+  const productosFiltradosBusqueda = useMemo(() => {
+    if (!busquedaProductos.trim()) return productosSorted
+    const term = busquedaProductos.trim().toLowerCase()
+    return productosSorted.filter((p) => p.nombre.toLowerCase().includes(term))
+  }, [productosSorted, busquedaProductos])
   const [filtroEstado, setFiltroEstado] = useState<EstadoPedido | 'todos'>('todos')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [mensajeConfig, setMensajeConfig] = useState('')
@@ -230,8 +236,23 @@ export default function PaginaAdmin() {
         {/* TAB PRODUCTOS */}
         {tab === 'productos' && (
           <>
+            <div className="relative mb-3">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">🔍</span>
+              <input
+                type="search"
+                value={busquedaProductos}
+                onChange={(e) => setBusquedaProductos(e.target.value)}
+                placeholder="Buscar producto..."
+                className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#CC0000] bg-white"
+              />
+            </div>
+
             <div className="flex justify-between items-center mb-4">
-              <p className="text-sm text-gray-500">{productos.length} productos</p>
+              <p className="text-sm text-gray-500">
+                {busquedaProductos.trim()
+                  ? `${productosFiltradosBusqueda.length} resultado${productosFiltradosBusqueda.length !== 1 ? 's' : ''}`
+                  : `${productos.length} productos`}
+              </p>
               <div className="flex items-center gap-2">
                 <select
                   value={ordenProductos}
@@ -267,7 +288,7 @@ export default function PaginaAdmin() {
 
             {!cargando && !error && (
               <div className="flex flex-col gap-2">
-                {productosSorted.map((producto) => (
+                {productosFiltradosBusqueda.map((producto) => (
                   <div
                     key={producto.id}
                     className={`bg-white rounded-xl border p-4 flex items-center gap-3 transition-opacity ${

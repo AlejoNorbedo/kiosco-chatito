@@ -29,6 +29,7 @@ export default function PaginaCatalogo() {
   const [categoriaActiva, setCategoriaActiva] = useState<string>('Todos')
   const [orden, setOrden] = useState<OrdenProductos>('creacion')
   const [carritoAbierto, setCarritoAbierto] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
 
   const { items, agregar, quitar, vaciar, totalItems, totalPrecio, cargando: cargandoCarrito } =
     useCarrito()
@@ -61,10 +62,15 @@ export default function PaginaCatalogo() {
   }, [productos])
 
   const productosFiltrados = useMemo(() => {
-    const filtrados =
-      categoriaActiva === 'Todos' ? productos : productos.filter((p) => p.categoria === categoriaActiva)
-    return sortearProductos(filtrados, orden)
-  }, [productos, categoriaActiva, orden])
+    let base = productos
+    if (busqueda.trim()) {
+      const term = busqueda.trim().toLowerCase()
+      base = productos.filter((p) => p.nombre.toLowerCase().includes(term))
+    } else {
+      base = categoriaActiva === 'Todos' ? productos : productos.filter((p) => p.categoria === categoriaActiva)
+    }
+    return sortearProductos(base, orden)
+  }, [productos, categoriaActiva, orden, busqueda])
 
   const productosAgrupados = useMemo(() => {
     if (categoriaActiva === 'Todos') return null
@@ -163,6 +169,20 @@ export default function PaginaCatalogo() {
 
       {/* Grilla de productos */}
       <div className="max-w-2xl mx-auto px-4 pt-4">
+        {/* Barra de búsqueda */}
+        {!cargando && !error && (
+          <div className="relative mb-3">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none">🔍</span>
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar producto..."
+              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#CC0000] bg-white"
+            />
+          </div>
+        )}
+
         {/* Selector de orden */}
         {!cargando && !error && (
           <div className="flex justify-end mb-4">
