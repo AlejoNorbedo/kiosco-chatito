@@ -1,0 +1,23 @@
+{
+  "name": "Empleadas Chatito",
+  "short_name": "Empleadas",
+  "description": "Panel de empleadas de Kiosco Chatito",
+  "start_url": "/empleada",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#CC0000",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "1414x1414",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "1414x1414",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

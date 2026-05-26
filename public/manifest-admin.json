@@ -1,0 +1,23 @@
+{
+  "name": "Admin Chatito",
+  "short_name": "Admin",
+  "description": "Panel de administración de Kiosco Chatito",
+  "start_url": "/admin",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#CC0000",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "1414x1414",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "1414x1414",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
