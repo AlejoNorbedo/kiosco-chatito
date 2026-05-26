@@ -2,13 +2,28 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Kiosco Chatito',
-  description: 'Pedí tus productos y recibí por WhatsApp',
+  title: 'Kiosco Chatito — Pedidos online por WhatsApp',
+  description: 'Pedí al kiosco de barrio: bebidas, golosinas, cigarrillos y más. Te respondemos a la brevedad por WhatsApp.',
   manifest: '/manifest.json',
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
     shortcut: '/logo.png',
+  },
+  openGraph: {
+    title: 'Kiosco Chatito',
+    description: 'Pedí al kiosco de barrio y te respondemos por WhatsApp. Bebidas, golosinas, cigarrillos y más.',
+    url: 'https://kioscochatito.com',
+    siteName: 'Kiosco Chatito',
+    images: [{ url: 'https://kioscochatito.com/logo.png', width: 500, height: 500, alt: 'Logo Kiosco Chatito' }],
+    locale: 'es_AR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Kiosco Chatito',
+    description: 'Pedí al kiosco de barrio y te respondemos por WhatsApp.',
+    images: ['https://kioscochatito.com/logo.png'],
   },
 }
 

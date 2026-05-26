@@ -16,6 +16,7 @@ export type ItemCarrito = {
 }
 
 export type ItemPedido = {
+  producto_id?: string
   nombre: string
   precio: number
   cantidad: number
@@ -42,6 +43,10 @@ export type Configuracion = {
   puntos_por_monto: number
   puntos_para_canje: number
   mensaje_canje: string
+  horario_activo: boolean
+  horario_apertura: string
+  horario_cierre: string
+  dias_activos: number[]
 }
 
 export type Cliente = {

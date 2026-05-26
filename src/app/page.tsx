@@ -7,7 +7,18 @@ import { useCarrito } from '@/hooks/useCarrito'
 import ProductoCard from '@/components/ProductoCard'
 import Carrito from '@/components/Carrito'
 import ModalInstalacion from '@/components/ModalInstalacion'
-import type { Producto } from '@/types'
+import type { Producto, Configuracion } from '@/types'
+
+function estaAbierto(config: Configuracion): boolean {
+  if (!config.horario_activo) return true
+  const ahora = new Date()
+  const dia = ahora.getDay()
+  if (!(config.dias_activos ?? [0,1,2,3,4,5,6]).includes(dia)) return false
+  const [hAp, mAp] = config.horario_apertura.split(':').map(Number)
+  const [hCi, mCi] = config.horario_cierre.split(':').map(Number)
+  const min = ahora.getHours() * 60 + ahora.getMinutes()
+  return min >= hAp * 60 + mAp && min < hCi * 60 + mCi
+}
 
 type OrdenProductos = 'creacion' | 'az' | 'za' | 'menor_precio' | 'mayor_precio'
 
@@ -30,11 +41,25 @@ export default function PaginaCatalogo() {
   const [orden, setOrden] = useState<OrdenProductos>('creacion')
   const [carritoAbierto, setCarritoAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState('')
+  const [configHorario, setConfigHorario] = useState<Pick<Configuracion, 'horario_activo' | 'horario_apertura' | 'horario_cierre' | 'dias_activos'>>({
+    horario_activo: false,
+    horario_apertura: '09:00',
+    horario_cierre: '22:00',
+    dias_activos: [0, 1, 2, 3, 4, 5, 6],
+  })
 
   const { items, agregar, quitar, vaciar, totalItems, totalPrecio, cargando: cargandoCarrito } =
     useCarrito()
 
   const instagramUrl = process.env.NEXT_PUBLIC_INSTAGRAM_URL
+
+  useEffect(() => {
+    supabase
+      .from('configuracion')
+      .select('horario_activo, horario_apertura, horario_cierre, dias_activos')
+      .single()
+      .then(({ data }) => { if (data) setConfigHorario(data) })
+  }, [])
 
   useEffect(() => {
     async function cargarProductos() {
@@ -162,6 +187,18 @@ export default function PaginaCatalogo() {
                   {cat}
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Banner cerrado */}
+        {configHorario.horario_activo && !estaAbierto(configHorario as Configuracion) && (
+          <div className="bg-amber-50 border-b border-amber-200">
+            <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-center gap-2">
+              <span className="text-base">🔒</span>
+              <p className="text-sm font-semibold text-amber-800">
+                Estamos cerrados · Atendemos de {configHorario.horario_apertura} a {configHorario.horario_cierre} hs
+              </p>
             </div>
           </div>
         )}

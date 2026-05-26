@@ -13,6 +13,39 @@ export async function PATCH(
     const datos: Record<string, unknown> = { ...resto }
     if (estado !== undefined) datos.estado = estado
 
+    // Al confirmar un pedido, descontar el stock de cada producto
+    if (estado === 'confirmado') {
+      const { data: pedidoParaStock } = await admin
+        .from('pedidos')
+        .select('estado, items')
+        .eq('id', params.id)
+        .maybeSingle()
+
+      if (pedidoParaStock && pedidoParaStock.estado !== 'confirmado') {
+        type ItemConId = { producto_id?: string; cantidad: number }
+        const itemsConId = (pedidoParaStock.items as ItemConId[]).filter((i) => i.producto_id)
+
+        if (itemsConId.length > 0) {
+          const ids = itemsConId.map((i) => i.producto_id!)
+          const { data: productosActuales } = await admin
+            .from('productos')
+            .select('id, stock')
+            .in('id', ids)
+
+          if (productosActuales) {
+            for (const item of itemsConId) {
+              const prod = productosActuales.find((p) => p.id === item.producto_id)
+              if (!prod) continue
+              await admin
+                .from('productos')
+                .update({ stock: Math.max(0, prod.stock - item.cantidad) })
+                .eq('id', item.producto_id!)
+            }
+          }
+        }
+      }
+    }
+
     // Cuando se cancela un pedido, restar los puntos que generó al cliente
     if (estado === 'cancelado') {
       const { data: pedidoActual } = await admin

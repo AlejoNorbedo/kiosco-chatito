@@ -23,6 +23,21 @@ const CONFIG_DEFECTO: Configuracion = {
   puntos_por_monto: 0,
   puntos_para_canje: 0,
   mensaje_canje: '',
+  horario_activo: false,
+  horario_apertura: '09:00',
+  horario_cierre: '22:00',
+  dias_activos: [0, 1, 2, 3, 4, 5, 6],
+}
+
+function estaAbierto(config: Configuracion): boolean {
+  if (!config.horario_activo) return true
+  const ahora = new Date()
+  const dia = ahora.getDay()
+  if (!(config.dias_activos ?? [0,1,2,3,4,5,6]).includes(dia)) return false
+  const [hAp, mAp] = config.horario_apertura.split(':').map(Number)
+  const [hCi, mCi] = config.horario_cierre.split(':').map(Number)
+  const min = ahora.getHours() * 60 + ahora.getMinutes()
+  return min >= hAp * 60 + mAp && min < hCi * 60 + mCi
 }
 
 export default function Carrito({
@@ -124,6 +139,7 @@ export default function Carrito({
 
   function handleEnviar(datos: DatosCheckout, totalFinal: number) {
     const itemsParaGuardar = items.map((i) => ({
+      producto_id: i.producto.id,
       nombre: i.producto.nombre,
       precio: i.producto.precio,
       cantidad: i.cantidad,
@@ -267,13 +283,22 @@ export default function Carrito({
                   </p>
                 )}
 
-                <button
-                  onClick={() => setPaso('checkout')}
-                  disabled={config.monto_minimo > 0 && totalPrecio < config.monto_minimo}
-                  className="w-full bg-[#CC0000] hover:bg-red-700 active:bg-red-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-900/20 disabled:shadow-none"
-                >
-                  Continuar con el pedido →
-                </button>
+                {config.horario_activo && !estaAbierto(config) ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-center">
+                    <p className="text-sm font-bold text-amber-800">Estamos cerrados ahora</p>
+                    <p className="text-xs text-amber-600 mt-0.5">
+                      Atendemos de {config.horario_apertura} a {config.horario_cierre} hs
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setPaso('checkout')}
+                    disabled={config.monto_minimo > 0 && totalPrecio < config.monto_minimo}
+                    className="w-full bg-[#CC0000] hover:bg-red-700 active:bg-red-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-900/20 disabled:shadow-none"
+                  >
+                    Continuar con el pedido →
+                  </button>
+                )}
 
                 <button
                   onClick={onVaciar}

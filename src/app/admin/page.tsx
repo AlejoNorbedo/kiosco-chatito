@@ -53,6 +53,10 @@ export default function PaginaAdmin() {
     puntos_por_monto: 0,
     puntos_para_canje: 0,
     mensaje_canje: '',
+    horario_activo: false,
+    horario_apertura: '09:00',
+    horario_cierre: '22:00',
+    dias_activos: [0, 1, 2, 3, 4, 5, 6],
   })
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -633,6 +637,87 @@ export default function PaginaAdmin() {
               <p className="text-xs text-gray-400">
                 Se muestra en el checkout y al canjear desde el panel.
               </p>
+            </div>
+
+            {/* Horario de atención */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex-1 pr-4">
+                  <p className="text-sm font-semibold text-gray-700">Horario de atención</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Bloquea pedidos fuera del horario configurado.
+                  </p>
+                </div>
+                <Toggle
+                  activo={config.horario_activo}
+                  onChange={(v) => setConfig((prev) => ({ ...prev, horario_activo: v }))}
+                />
+              </div>
+              {config.horario_activo && (
+                <div className="mt-3 flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                        Apertura
+                      </label>
+                      <input
+                        type="time"
+                        value={config.horario_apertura}
+                        onChange={(e) => setConfig((prev) => ({ ...prev, horario_apertura: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-green-500 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                        Cierre
+                      </label>
+                      <input
+                        type="time"
+                        value={config.horario_cierre}
+                        onChange={(e) => setConfig((prev) => ({ ...prev, horario_cierre: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-green-500 bg-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">
+                      Días de atención
+                    </label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {([
+                        { dia: 1, label: 'Lun' },
+                        { dia: 2, label: 'Mar' },
+                        { dia: 3, label: 'Mié' },
+                        { dia: 4, label: 'Jue' },
+                        { dia: 5, label: 'Vie' },
+                        { dia: 6, label: 'Sáb' },
+                        { dia: 0, label: 'Dom' },
+                      ] as const).map(({ dia, label }) => {
+                        const activo = (config.dias_activos ?? []).includes(dia)
+                        return (
+                          <button
+                            key={dia}
+                            type="button"
+                            onClick={() =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dias_activos: activo
+                                  ? (prev.dias_activos ?? []).filter((d) => d !== dia)
+                                  : [...(prev.dias_activos ?? []), dia],
+                              }))
+                            }
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                              activo ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Guardar */}
