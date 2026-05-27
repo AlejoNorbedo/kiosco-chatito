@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
     const hasta = searchParams.get('hasta')
 
     const supabase = crearClienteAdmin()
+    const telefono = searchParams.get('telefono')
+
     let query = supabase
       .from('pedidos')
       .select('*')
@@ -17,12 +19,13 @@ export async function GET(request: NextRequest) {
 
     if (desde && hasta) {
       query = query.gte('created_at', desde).lte('created_at', hasta)
-    } else {
+    } else if (!telefono) {
       query = query.limit(50)
     }
 
     const estado = searchParams.get('estado')
     if (estado) query = query.eq('estado', estado)
+    if (telefono) query = query.contains('datos_cliente', { telefono })
 
     const { data, error } = await query
 

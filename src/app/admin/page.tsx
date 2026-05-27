@@ -1,13 +1,33 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import FormularioProducto from '@/components/admin/FormularioProducto'
 import CierreCaja from '@/components/admin/CierreCaja'
 import TabClientes from '@/components/admin/TabClientes'
+import Dashboard from '@/components/admin/Dashboard'
 import type { Producto, Pedido, Configuracion, EstadoPedido } from '@/types'
 
-type Tab = 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'configuracion'
+type Tab = 'dashboard' | 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'configuracion'
+
+function sonarNotificacion() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15)
+    gain.gain.setValueAtTime(0.3, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.5)
+  } catch { /* silent */ }
+}
+
 type OrdenProductos = 'creacion' | 'az' | 'za' | 'menor_precio' | 'mayor_precio'
 
 function sortearProductos(lista: Producto[], orden: OrdenProductos): Producto[] {
@@ -22,6 +42,7 @@ function sortearProductos(lista: Producto[], orden: OrdenProductos): Producto[] 
 }
 
 const TAB_LABELS: Record<Tab, string> = {
+  dashboard: 'Dashboard',
   productos: 'Productos',
   pedidos: 'Pedidos',
   cierre: 'Cierre de Caja',
@@ -41,7 +62,7 @@ const ESTADO_ESTILOS: Record<EstadoPedido, {
 }
 
 export default function PaginaAdmin() {
-  const [tab, setTab] = useState<Tab>('productos')
+  const [tab, setTab] = useState<Tab>('dashboard')
   const [productos, setProductos] = useState<Producto[]>([])
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [config, setConfig] = useState<Configuracion>({
@@ -80,16 +101,48 @@ export default function PaginaAdmin() {
   const [filtroEstado, setFiltroEstado] = useState<EstadoPedido | 'todos'>('todos')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [mensajeConfig, setMensajeConfig] = useState('')
+  const [nuevosPedidos, setNuevosPedidos] = useState(0)
+  const [toastPedido, setToastPedido] = useState<Pedido | null>(null)
+  const [pedidosCargados, setPedidosCargados] = useState(false)
+  const tabRef = useRef<Tab>('dashboard')
   const router = useRouter()
+
+  const mostrarToast = useCallback((pedido: Pedido) => {
+    setToastPedido(pedido)
+    setTimeout(() => setToastPedido(null), 6000)
+  }, [])
 
   useEffect(() => {
     cargarProductos()
   }, [])
 
   useEffect(() => {
-    if (tab === 'pedidos' && pedidos.length === 0) cargarPedidos()
+    tabRef.current = tab
+    if (tab === 'pedidos') {
+      setNuevosPedidos(0)
+      if (!pedidosCargados) cargarPedidos()
+    }
     if (tab === 'configuracion') cargarConfig()
   }, [tab])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-pedidos-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'pedidos' },
+        (payload) => {
+          const nuevo = payload.new as Pedido
+          setPedidos((prev) => prev.some((p) => p.id === nuevo.id) ? prev : [nuevo, ...prev])
+          sonarNotificacion()
+          mostrarToast(nuevo)
+          if (tabRef.current !== 'pedidos') setNuevosPedidos((prev) => prev + 1)
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [mostrarToast])
 
   async function cargarProductos() {
     setCargando(true)
@@ -110,7 +163,16 @@ export default function PaginaAdmin() {
 
   async function cargarPedidos() {
     const res = await fetch('/api/admin/pedidos')
-    if (res.ok) setPedidos(await res.json())
+    if (res.ok) {
+      const del_servidor: Pedido[] = await res.json()
+      // Merge preservando pedidos que llegaron por realtime antes de la carga inicial
+      setPedidos((prev) => {
+        const idsServidor = new Set(del_servidor.map((p) => p.id))
+        const soloRealtime = prev.filter((p) => !idsServidor.has(p.id))
+        return [...soloRealtime, ...del_servidor]
+      })
+      setPedidosCargados(true)
+    }
   }
 
   async function cargarConfig() {
@@ -178,6 +240,7 @@ export default function PaginaAdmin() {
   }
 
   async function cambiarEstado(pedidoId: string, estado: EstadoPedido) {
+    const pedidoOriginal = pedidos.find((p) => p.id === pedidoId)
     const res = await fetch(`/api/admin/pedidos/${pedidoId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -186,6 +249,15 @@ export default function PaginaAdmin() {
     if (res.ok) {
       const actualizado = await res.json()
       setPedidos((prev) => prev.map((p) => (p.id === actualizado.id ? actualizado : p)))
+
+      if (estado === 'confirmado' && pedidoOriginal?.estado !== 'confirmado') {
+        const telefono = pedidoOriginal?.datos_cliente?.telefono?.trim().replace(/\D/g, '')
+        if (telefono) {
+          const nombre = pedidoOriginal?.datos_cliente?.nombre ?? 'cliente'
+          const msg = encodeURIComponent(`¡Hola ${nombre}! Tu pedido fue confirmado ✓ Ya lo estamos preparando.`)
+          window.open(`https://wa.me/${telefono}?text=${msg}`, '_blank')
+        }
+      }
     }
   }
 
@@ -224,19 +296,51 @@ export default function PaginaAdmin() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-shrink-0 px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex-shrink-0 px-5 py-2.5 text-sm font-medium border-b-2 transition-colors relative ${
                 tab === t
                   ? 'border-white text-white'
                   : 'border-transparent text-white/60 hover:text-white'
               }`}
             >
               {TAB_LABELS[t]}
+              {t === 'pedidos' && nuevosPedidos > 0 && (
+                <span className="absolute top-1.5 right-1 bg-white text-[#CC0000] text-[9px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                  {nuevosPedidos > 9 ? '9+' : nuevosPedidos}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </header>
 
+      {/* Toast de nuevo pedido */}
+      {toastPedido && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm">
+          <div className="bg-gray-900 text-white rounded-2xl px-4 py-3 shadow-2xl flex items-start gap-3">
+            <span className="text-xl flex-shrink-0 mt-0.5">🛒</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold">¡Nuevo pedido!</p>
+              <p className="text-xs text-gray-300 mt-0.5 truncate">
+                {toastPedido.datos_cliente?.nombre ?? 'Cliente'} ·{' '}
+                <span className="font-semibold text-white">
+                  ${toastPedido.total.toLocaleString('es-AR')}
+                </span>
+              </p>
+            </div>
+            <button
+              onClick={() => setToastPedido(null)}
+              className="text-gray-400 hover:text-white text-lg leading-none flex-shrink-0"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto px-4 py-4">
+        {/* TAB DASHBOARD */}
+        {tab === 'dashboard' && <Dashboard />}
+
         {/* TAB PRODUCTOS */}
         {tab === 'productos' && (
           <>
@@ -300,11 +404,32 @@ export default function PaginaAdmin() {
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-800 text-sm truncate">
+                      <p className="font-medium text-gray-800 text-sm truncate flex items-center gap-1.5">
                         {producto.nombre}
+                        {producto.destacado && <span className="text-yellow-400 text-xs">★</span>}
+                        {!producto.suma_puntos && (
+                          <span className="text-[10px] font-extrabold text-white bg-gray-400 px-1.5 py-0.5 rounded-full leading-none">
+                            sin pts
+                          </span>
+                        )}
+                        {producto.precio_oferta !== null && (
+                          <span className="text-[10px] font-extrabold text-white bg-[#CC0000] px-1.5 py-0.5 rounded-full leading-none">
+                            OFERTA
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {producto.categoria}{producto.subcategoria ? ` › ${producto.subcategoria}` : ''} · ${producto.precio.toLocaleString('es-AR')} ·{' '}
+                        {producto.categoria}{producto.subcategoria ? ` › ${producto.subcategoria}` : ''} ·{' '}
+                        {producto.precio_oferta !== null ? (
+                          <>
+                            <span className="text-[#CC0000] font-semibold">${producto.precio_oferta.toLocaleString('es-AR')}</span>
+                            {' '}
+                            <span className="line-through">${producto.precio.toLocaleString('es-AR')}</span>
+                          </>
+                        ) : (
+                          `$${producto.precio.toLocaleString('es-AR')}`
+                        )}
+                        {' · '}
                         <span className={producto.stock === 0 ? 'text-red-500 font-medium' : ''}>
                           Stock: {producto.stock}
                         </span>

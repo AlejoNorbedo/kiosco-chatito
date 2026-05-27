@@ -66,10 +66,10 @@ export default function Carrito({
   function armarMensajeWhatsApp(datos: DatosCheckout, totalFinal: number): string {
     const costoEnvio = datos.tipoEntrega === 'envio' ? config.costo_envio : 0
 
-    const detalles = items.map(
-      (i) =>
-        `  ${i.cantidad}x ${i.producto.nombre} — $${(i.producto.precio * i.cantidad).toLocaleString('es-AR')}`
-    )
+    const detalles = items.map((i) => {
+      const precioEfectivo = i.producto.precio_oferta ?? i.producto.precio
+      return `  ${i.cantidad}x ${i.producto.nombre} — $${(precioEfectivo * i.cantidad).toLocaleString('es-AR')}`
+    })
 
     const partes: string[] = [
       'Hola, quisiera hacer el siguiente pedido:',
@@ -125,10 +125,16 @@ export default function Carrito({
     }
 
     if (config.puntos_por_monto > 0 && datos.telefono.trim()) {
-      const puntosGanados = Math.floor(totalFinal / config.puntos_por_monto)
-      partes.push('')
-      partes.push('*--- PUNTOS DE FIDELIDAD ---*')
-      partes.push(`*Puntos ganados en este pedido:* ${puntosGanados}`)
+      const subtotalParaPuntos = items.reduce(
+        (acc, i) => i.producto.suma_puntos ? acc + (i.producto.precio_oferta ?? i.producto.precio) * i.cantidad : acc,
+        0
+      )
+      if (subtotalParaPuntos > 0) {
+        const puntosGanados = Math.floor(subtotalParaPuntos / config.puntos_por_monto)
+        partes.push('')
+        partes.push('*--- PUNTOS DE FIDELIDAD ---*')
+        partes.push(`*Puntos ganados en este pedido:* ${puntosGanados}`)
+      }
     }
 
     partes.push('')
@@ -141,26 +147,32 @@ export default function Carrito({
     const itemsParaGuardar = items.map((i) => ({
       producto_id: i.producto.id,
       nombre: i.producto.nombre,
-      precio: i.producto.precio,
+      precio: i.producto.precio_oferta ?? i.producto.precio,
       cantidad: i.cantidad,
     }))
+
+    const subtotalParaPuntos = items.reduce(
+      (acc, i) => i.producto.suma_puntos ? acc + (i.producto.precio_oferta ?? i.producto.precio) * i.cantidad : acc,
+      0
+    )
     const puntos_generados =
-      config.puntos_por_monto > 0 && datos.telefono.trim()
-        ? Math.floor(totalFinal / config.puntos_por_monto)
+      config.puntos_por_monto > 0 && datos.telefono.trim() && subtotalParaPuntos > 0
+        ? Math.floor(subtotalParaPuntos / config.puntos_por_monto)
         : 0
+
     supabase
       .from('pedidos')
       .insert({ items: itemsParaGuardar, total: totalFinal, datos_cliente: datos, puntos_generados })
       .then()
 
-    if (config.puntos_por_monto > 0 && datos.telefono.trim()) {
+    if (puntos_generados > 0) {
       fetch('/api/fidelizacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           telefono: datos.telefono.trim(),
           nombre: datos.nombre.trim(),
-          monto: totalFinal,
+          monto: subtotalParaPuntos,
         }),
       }).catch(() => {})
     }
@@ -234,7 +246,10 @@ export default function Carrito({
                         {item.producto.nombre}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        ${item.producto.precio.toLocaleString('es-AR')} c/u
+                        ${(item.producto.precio_oferta ?? item.producto.precio).toLocaleString('es-AR')} c/u
+                        {item.producto.precio_oferta !== null && (
+                          <span className="line-through ml-1">${item.producto.precio.toLocaleString('es-AR')}</span>
+                        )}
                       </p>
                     </div>
 
@@ -257,7 +272,7 @@ export default function Carrito({
                     </div>
 
                     <p className="text-sm font-extrabold text-[#CC0000] w-16 text-right tabular-nums">
-                      ${(item.producto.precio * item.cantidad).toLocaleString('es-AR')}
+                      ${((item.producto.precio_oferta ?? item.producto.precio) * item.cantidad).toLocaleString('es-AR')}
                     </p>
                   </div>
                 ))

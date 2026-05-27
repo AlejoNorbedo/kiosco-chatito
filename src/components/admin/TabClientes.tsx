@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { Cliente, HistorialPunto } from '@/types'
+import type { Cliente, HistorialPunto, Pedido } from '@/types'
 
 type ConfigFidelizacion = {
   puntos_para_canje: number
@@ -29,6 +29,9 @@ export default function TabClientes() {
   const [historialAbierto, setHistorialAbierto] = useState<string | null>(null)
   const [historialData, setHistorialData] = useState<Record<string, HistorialPunto[]>>({})
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
+  const [pedidosAbierto, setPedidosAbierto] = useState<string | null>(null)
+  const [pedidosData, setPedidosData] = useState<Record<string, Pedido[]>>({})
+  const [cargandoPedidos, setCargandoPedidos] = useState(false)
 
   const cargar = useCallback(async () => {
     setErrorMsg('')
@@ -67,6 +70,7 @@ export default function TabClientes() {
       return
     }
     setHistorialAbierto(clienteId)
+    setPedidosAbierto(null)
     if (historialData[clienteId]) return
     setCargandoHistorial(true)
     const res = await fetch(`/api/admin/clientes/${clienteId}/historial`, { cache: 'no-store' })
@@ -75,6 +79,23 @@ export default function TabClientes() {
       setHistorialData((prev) => ({ ...prev, [clienteId]: data }))
     }
     setCargandoHistorial(false)
+  }
+
+  async function abrirPedidos(clienteId: string, telefono: string) {
+    if (pedidosAbierto === clienteId) {
+      setPedidosAbierto(null)
+      return
+    }
+    setPedidosAbierto(clienteId)
+    setHistorialAbierto(null)
+    if (pedidosData[clienteId]) return
+    setCargandoPedidos(true)
+    const res = await fetch(`/api/admin/pedidos?telefono=${encodeURIComponent(telefono)}`, { cache: 'no-store' })
+    if (res.ok) {
+      const data = await res.json()
+      setPedidosData((prev) => ({ ...prev, [clienteId]: Array.isArray(data) ? data : [] }))
+    }
+    setCargandoPedidos(false)
   }
 
   async function guardarEdicion(form: FormEditar) {
@@ -211,6 +232,8 @@ export default function TabClientes() {
             const puedeCanjar = config.puntos_para_canje > 0 && disponibles >= config.puntos_para_canje
             const historialVisible = historialAbierto === cliente.id
             const historial = historialData[cliente.id]
+            const pedidosVisible = pedidosAbierto === cliente.id
+            const pedidos = pedidosData[cliente.id]
 
             return (
               <div key={cliente.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -251,14 +274,26 @@ export default function TabClientes() {
                       <button
                         type="button"
                         onClick={() => abrirHistorial(cliente.id)}
-                        title="Ver historial"
+                        title="Ver historial de puntos"
                         className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${
                           historialVisible
                             ? 'bg-gray-800 text-white'
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
-                        ↕
+                        ★
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => abrirPedidos(cliente.id, cliente.telefono)}
+                        title="Ver pedidos del cliente"
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${
+                          pedidosVisible
+                            ? 'bg-gray-800 text-white'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        📋
                       </button>
                       <button
                         type="button"
@@ -303,6 +338,55 @@ export default function TabClientes() {
                             </span>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {pedidosVisible && (
+                  <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      Pedidos del cliente
+                    </p>
+                    {cargandoPedidos && !pedidos ? (
+                      <p className="text-xs text-gray-400">Cargando...</p>
+                    ) : !pedidos || pedidos.length === 0 ? (
+                      <p className="text-xs text-gray-400">Sin pedidos registrados con este teléfono</p>
+                    ) : (
+                      <div className="flex flex-col gap-2.5">
+                        {pedidos.map((p) => {
+                          const estadoColor = p.estado === 'confirmado'
+                            ? 'text-green-600' : p.estado === 'cancelado'
+                            ? 'text-red-500' : 'text-yellow-600'
+                          return (
+                            <div key={p.id} className="bg-white rounded-xl border border-gray-100 p-3">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-xs text-gray-400">
+                                  {new Date(p.created_at).toLocaleDateString('es-AR', {
+                                    day: '2-digit', month: '2-digit', year: 'numeric',
+                                  })}
+                                  {' '}
+                                  {new Date(p.created_at).toLocaleTimeString('es-AR', {
+                                    hour: '2-digit', minute: '2-digit',
+                                  })} hs
+                                </span>
+                                <span className={`text-xs font-bold capitalize ${estadoColor}`}>
+                                  {p.estado ?? 'pendiente'}
+                                </span>
+                              </div>
+                              <ul className="flex flex-col gap-0.5 mb-1.5">
+                                {p.items.map((item, i) => (
+                                  <li key={i} className="text-xs text-gray-600">
+                                    {item.cantidad}× {item.nombre}
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="text-xs font-bold text-[#CC0000] tabular-nums">
+                                Total: ${p.total.toLocaleString('es-AR')}
+                              </p>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

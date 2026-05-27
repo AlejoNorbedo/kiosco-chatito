@@ -6,11 +6,14 @@ import type { Producto } from '@/types'
 type Campos = {
   nombre: string
   precio: string
+  precio_oferta: string
   categoria: string
   subcategoria: string
   stock: string
   imagen_url: string
   activo: boolean
+  destacado: boolean
+  suma_puntos: boolean
 }
 
 type Props = {
@@ -24,11 +27,14 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar, subc
   const [campos, setCampos] = useState<Campos>({
     nombre: producto?.nombre ?? '',
     precio: producto?.precio?.toString() ?? '',
+    precio_oferta: producto?.precio_oferta?.toString() ?? '',
     categoria: producto?.categoria ?? '',
     subcategoria: producto?.subcategoria ?? '',
     stock: producto?.stock?.toString() ?? '0',
     imagen_url: producto?.imagen_url ?? '',
     activo: producto?.activo ?? true,
+    destacado: producto?.destacado ?? false,
+    suma_puntos: producto?.suma_puntos ?? true,
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -94,6 +100,7 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar, subc
 
     const precio = parseFloat(campos.precio)
     const stock = parseInt(campos.stock, 10)
+    const precio_oferta = campos.precio_oferta.trim() !== '' ? parseFloat(campos.precio_oferta) : null
 
     if (isNaN(precio) || precio < 0) {
       setError('El precio debe ser un número válido')
@@ -105,16 +112,29 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar, subc
       setGuardando(false)
       return
     }
+    if (precio_oferta !== null && (isNaN(precio_oferta) || precio_oferta < 0)) {
+      setError('El precio de oferta debe ser un número válido')
+      setGuardando(false)
+      return
+    }
+    if (precio_oferta !== null && precio_oferta >= precio) {
+      setError('El precio de oferta debe ser menor al precio normal')
+      setGuardando(false)
+      return
+    }
 
     try {
       await onGuardar({
         nombre: campos.nombre.trim(),
         precio,
+        precio_oferta,
         categoria: campos.categoria.trim(),
         subcategoria: campos.subcategoria.trim() || null,
         stock,
         imagen_url: campos.imagen_url.trim() || null,
         activo: campos.activo,
+        destacado: campos.destacado,
+        suma_puntos: campos.suma_puntos,
       })
     } catch {
       setError('Ocurrió un error. Intentá de nuevo.')
@@ -245,15 +265,50 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar, subc
             </Campo>
           </div>
 
-          <label className="flex items-center gap-3 cursor-pointer">
+          <Campo label="Precio de oferta ($)">
             <input
-              type="checkbox"
-              checked={campos.activo}
-              onChange={(e) => actualizar('activo', e.target.checked)}
-              className="w-4 h-4 accent-green-500"
+              type="number"
+              value={campos.precio_oferta}
+              onChange={(e) => actualizar('precio_oferta', e.target.value)}
+              min="0"
+              step="0.01"
+              placeholder="Dejar vacío si no hay oferta"
+              className={estiloInput}
             />
-            <span className="text-sm font-medium text-gray-700">Producto activo (visible)</span>
-          </label>
+            <p className="text-xs text-gray-400 mt-1">
+              Si se completa, se muestra el precio tachado y el badge OFERTA.
+            </p>
+          </Campo>
+
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={campos.activo}
+                onChange={(e) => actualizar('activo', e.target.checked)}
+                className="w-4 h-4 accent-green-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Producto activo (visible)</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={campos.destacado}
+                onChange={(e) => actualizar('destacado', e.target.checked)}
+                className="w-4 h-4 accent-yellow-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Destacado (aparece en la sección especial)</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={campos.suma_puntos}
+                onChange={(e) => actualizar('suma_puntos', e.target.checked)}
+                className="w-4 h-4 accent-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Suma puntos de fidelización</span>
+            </label>
+          </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 

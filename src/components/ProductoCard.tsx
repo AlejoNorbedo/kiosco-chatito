@@ -43,6 +43,13 @@ export default function ProductoCard({
             </span>
           </div>
         )}
+        {!agotado && producto.precio_oferta !== null && (
+          <div className="absolute top-2 left-2">
+            <span className="bg-[#CC0000] text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide shadow-sm">
+              OFERTA
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -50,9 +57,20 @@ export default function ProductoCard({
         <p className="font-semibold text-gray-800 text-sm leading-tight line-clamp-2">
           {producto.nombre}
         </p>
-        <p className="text-[#CC0000] font-extrabold text-base">
-          ${producto.precio.toLocaleString('es-AR')}
-        </p>
+        {producto.precio_oferta !== null ? (
+          <div className="flex items-baseline gap-1.5">
+            <p className="text-[#CC0000] font-extrabold text-base">
+              ${producto.precio_oferta.toLocaleString('es-AR')}
+            </p>
+            <p className="text-gray-400 line-through text-xs font-medium">
+              ${producto.precio.toLocaleString('es-AR')}
+            </p>
+          </div>
+        ) : (
+          <p className="text-[#CC0000] font-extrabold text-base">
+            ${producto.precio.toLocaleString('es-AR')}
+          </p>
+        )}
 
         {/* Control de cantidad */}
         <div className="mt-auto pt-1">

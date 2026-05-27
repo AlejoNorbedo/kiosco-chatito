@@ -2,10 +2,13 @@ export type Producto = {
   id: string
   nombre: string
   precio: number
+  precio_oferta: number | null
   categoria: string
   subcategoria: string | null
   imagen_url: string | null
   activo: boolean
+  destacado: boolean
+  suma_puntos: boolean
   stock: number
   created_at: string
 }

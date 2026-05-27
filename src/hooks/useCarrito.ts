@@ -63,7 +63,7 @@ export function useCarrito() {
 
   const totalItems = items.reduce((acc, i) => acc + i.cantidad, 0)
   const totalPrecio = items.reduce(
-    (acc, i) => acc + i.producto.precio * i.cantidad,
+    (acc, i) => acc + (i.producto.precio_oferta ?? i.producto.precio) * i.cantidad,
     0
   )
 

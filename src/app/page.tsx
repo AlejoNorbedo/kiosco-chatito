@@ -27,8 +27,8 @@ function sortearProductos(lista: Producto[], orden: OrdenProductos): Producto[] 
   switch (orden) {
     case 'az': return c.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
     case 'za': return c.sort((a, b) => b.nombre.localeCompare(a.nombre, 'es'))
-    case 'menor_precio': return c.sort((a, b) => a.precio - b.precio)
-    case 'mayor_precio': return c.sort((a, b) => b.precio - a.precio)
+    case 'menor_precio': return c.sort((a, b) => (a.precio_oferta ?? a.precio) - (b.precio_oferta ?? b.precio))
+    case 'mayor_precio': return c.sort((a, b) => (b.precio_oferta ?? b.precio) - (a.precio_oferta ?? a.precio))
     default: return c.sort((a, b) => a.created_at.localeCompare(b.created_at))
   }
 }
@@ -96,6 +96,11 @@ export default function PaginaCatalogo() {
     }
     return sortearProductos(base, orden)
   }, [productos, categoriaActiva, orden, busqueda])
+
+  const productosDestacados = useMemo(() => {
+    if (busqueda.trim() || categoriaActiva !== 'Todos') return []
+    return productos.filter((p) => p.destacado)
+  }, [productos, busqueda, categoriaActiva])
 
   const productosAgrupados = useMemo(() => {
     if (categoriaActiva === 'Todos') return null
@@ -263,6 +268,25 @@ export default function PaginaCatalogo() {
             >
               Reintentar
             </button>
+          </div>
+        )}
+
+        {!cargando && !error && productosDestacados.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5">
+              <span>⭐</span> Destacados
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              {productosDestacados.map((producto) => (
+                <ProductoCard
+                  key={`dest-${producto.id}`}
+                  producto={producto}
+                  itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
+                  onAgregar={agregar}
+                  onQuitar={quitar}
+                />
+              ))}
+            </div>
           </div>
         )}
 
