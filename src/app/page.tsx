@@ -124,7 +124,7 @@ export default function PaginaCatalogo() {
       <header className="sticky top-0 z-30">
         {/* Barra principal */}
         <div className="bg-[#CC0000]">
-          <div className="max-w-2xl mx-auto px-4 pt-3 pb-3 flex items-center justify-between gap-3">
+          <div className="max-w-5xl mx-auto px-4 pt-3 pb-3 flex items-center justify-between gap-3">
             {/* Branding con logo */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <Image
@@ -178,7 +178,7 @@ export default function PaginaCatalogo() {
         {/* Filtro de categorías */}
         {categorias.length > 1 && (
           <div className="bg-white shadow-sm border-b border-gray-100">
-            <div className="max-w-2xl mx-auto px-4 py-2.5 flex gap-2 overflow-x-auto scrollbar-hide">
+            <div className="max-w-5xl mx-auto px-4 py-2.5 flex gap-2 overflow-x-auto scrollbar-hide md:flex-wrap md:overflow-x-visible">
               {categorias.map((cat) => (
                 <button
                   key={cat}
@@ -199,7 +199,7 @@ export default function PaginaCatalogo() {
         {/* Banner cerrado */}
         {configHorario.horario_activo && !estaAbierto(configHorario as Configuracion) && (
           <div className="bg-amber-50 border-b border-amber-200">
-            <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-center gap-2">
+            <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-center gap-2">
               <span className="text-base">🔒</span>
               <p className="text-sm font-semibold text-amber-800">
                 Estamos cerrados · Atendemos de {configHorario.horario_apertura} a {configHorario.horario_cierre} hs
@@ -210,28 +210,24 @@ export default function PaginaCatalogo() {
       </header>
 
       {/* Grilla de productos */}
-      <div className="max-w-2xl mx-auto px-4 pt-4">
-        {/* Barra de búsqueda */}
+      <div className="max-w-5xl mx-auto px-4 pt-4">
+        {/* Barra de búsqueda + orden en la misma fila */}
         {!cargando && !error && (
-          <div className="relative mb-3">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none">🔍</span>
-            <input
-              type="search"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar producto..."
-              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#CC0000] bg-white"
-            />
-          </div>
-        )}
-
-        {/* Selector de orden */}
-        {!cargando && !error && (
-          <div className="flex justify-end mb-4">
+          <div className="flex gap-3 mb-4">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none">🔍</span>
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar producto..."
+                className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#CC0000] bg-white"
+              />
+            </div>
             <select
               value={orden}
               onChange={(e) => setOrden(e.target.value as OrdenProductos)}
-              className="text-xs font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl px-3 py-2 outline-none transition-colors cursor-pointer"
+              className="text-xs font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl px-3 py-2 outline-none transition-colors cursor-pointer flex-shrink-0"
             >
               <option value="creacion">Orden de carga</option>
               <option value="az">A → Z</option>
@@ -244,8 +240,8 @@ export default function PaginaCatalogo() {
 
         {/* Skeleton de carga */}
         {cargando && (
-          <div className="grid grid-cols-2 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div className="h-40 bg-gray-200 animate-pulse" />
                 <div className="p-3 flex flex-col gap-2">
@@ -276,7 +272,7 @@ export default function PaginaCatalogo() {
             <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5">
               <span>⭐</span> Destacados
             </h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {productosDestacados.map((producto) => (
                 <ProductoCard
                   key={`dest-${producto.id}`}
@@ -301,7 +297,7 @@ export default function PaginaCatalogo() {
           productosAgrupados ? (
             <div className="flex flex-col gap-6">
               {productosAgrupados.sinSubcat.length > 0 && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {productosAgrupados.sinSubcat.map((producto) => (
                     <ProductoCard
                       key={producto.id}
@@ -318,7 +314,7 @@ export default function PaginaCatalogo() {
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">
                     {subcategoria}
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                     {prods.map((producto) => (
                       <ProductoCard
                         key={producto.id}
@@ -333,7 +329,7 @@ export default function PaginaCatalogo() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {productosFiltrados.map((producto) => (
                 <ProductoCard
                   key={producto.id}
@@ -351,7 +347,7 @@ export default function PaginaCatalogo() {
       {/* Barra flotante del carrito */}
       {!carritoAbierto && totalItems > 0 && (
         <div className="fixed bottom-0 left-0 right-0 px-4 py-3 bg-white/80 backdrop-blur-sm border-t border-gray-100 shadow-2xl z-30">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <button
               onClick={() => setCarritoAbierto(true)}
               className="w-full bg-[#CC0000] hover:bg-red-700 active:bg-red-800 text-white font-bold py-3.5 rounded-2xl flex items-center justify-between px-5 transition-colors shadow-lg shadow-red-900/20"
