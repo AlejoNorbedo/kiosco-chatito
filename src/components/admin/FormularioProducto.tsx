@@ -21,10 +21,11 @@ type Props = {
   producto?: Producto
   onGuardar: (datos: Partial<Producto>) => Promise<void>
   onCerrar: () => void
+  categoriasExistentes?: string[]
   subcategoriasExistentes?: string[]
 }
 
-export default function FormularioProducto({ producto, onGuardar, onCerrar, subcategoriasExistentes = [] }: Props) {
+export default function FormularioProducto({ producto, onGuardar, onCerrar, categoriasExistentes = [], subcategoriasExistentes = [] }: Props) {
   const [campos, setCampos] = useState<Campos>({
     nombre: producto?.nombre ?? '',
     precio: producto?.precio?.toString() ?? '',
@@ -215,12 +216,20 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar, subc
           <Campo label="Categoría" requerido>
             <input
               type="text"
+              list="categorias-list"
               value={campos.categoria}
               onChange={(e) => actualizar('categoria', e.target.value)}
               placeholder="Bebidas, Golosinas, Cigarrillos..."
               required
               className={estiloInput}
             />
+            {categoriasExistentes.length > 0 && (
+              <datalist id="categorias-list">
+                {categoriasExistentes.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            )}
           </Campo>
 
           <Campo label="Subcategoría">

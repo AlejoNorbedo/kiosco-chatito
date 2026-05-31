@@ -89,24 +89,39 @@ export default function PaginaAdmin() {
     () => sortearProductos(productos, ordenProductos),
     [productos, ordenProductos]
   )
+  const categoriasExistentes = useMemo(
+    () => Array.from(new Set(productos.map((p) => p.categoria))).sort() as string[],
+    [productos]
+  )
   const subcategoriasExistentes = useMemo(
     () => Array.from(new Set(productos.map((p) => p.subcategoria).filter(Boolean))) as string[],
     [productos]
   )
   const [busquedaProductos, setBusquedaProductos] = useState('')
   const [categoriaAdmin, setCategoriaAdmin] = useState('Todos')
+  const [subcategoriaAdmin, setSubcategoriaAdmin] = useState('Todas')
   const categoriasAdmin = useMemo(() => {
     const unicas = Array.from(new Set(productos.map((p) => p.categoria))).sort()
     return ['Todos', ...unicas]
   }, [productos])
+  const subcategoriasAdmin = useMemo(() => {
+    if (categoriaAdmin === 'Todos') return []
+    const unicas = Array.from(new Set(
+      productos.filter((p) => p.categoria === categoriaAdmin && p.subcategoria).map((p) => p.subcategoria as string)
+    )).sort()
+    return unicas
+  }, [productos, categoriaAdmin])
   const productosFiltradosBusqueda = useMemo(() => {
     let base = categoriaAdmin === 'Todos' ? productosSorted : productosSorted.filter((p) => p.categoria === categoriaAdmin)
+    if (subcategoriaAdmin !== 'Todas') {
+      base = base.filter((p) => p.subcategoria === subcategoriaAdmin)
+    }
     if (busquedaProductos.trim()) {
       const term = busquedaProductos.trim().toLowerCase()
       base = base.filter((p) => p.nombre.toLowerCase().includes(term))
     }
     return base
-  }, [productosSorted, busquedaProductos, categoriaAdmin])
+  }, [productosSorted, busquedaProductos, categoriaAdmin, subcategoriaAdmin])
   const [filtroEstado, setFiltroEstado] = useState<EstadoPedido | 'todos'>('todos')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [mensajeConfig, setMensajeConfig] = useState('')
@@ -365,11 +380,11 @@ export default function PaginaAdmin() {
             </div>
 
             {categoriasAdmin.length > 2 && (
-              <div className="flex gap-1.5 mb-3 overflow-x-auto scrollbar-hide pb-1">
+              <div className="flex gap-1.5 mb-2 overflow-x-auto scrollbar-hide pb-1">
                 {categoriasAdmin.map((cat) => (
                   <button
                     key={cat}
-                    onClick={() => setCategoriaAdmin(cat)}
+                    onClick={() => { setCategoriaAdmin(cat); setSubcategoriaAdmin('Todas') }}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                       categoriaAdmin === cat
                         ? 'bg-[#CC0000] text-white'
@@ -377,6 +392,24 @@ export default function PaginaAdmin() {
                     }`}
                   >
                     {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {subcategoriasAdmin.length > 0 && (
+              <div className="flex gap-1.5 mb-3 overflow-x-auto scrollbar-hide pb-1">
+                {['Todas', ...subcategoriasAdmin].map((sub) => (
+                  <button
+                    key={sub}
+                    onClick={() => setSubcategoriaAdmin(sub)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      subcategoriaAdmin === sub
+                        ? 'bg-gray-700 text-white'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {sub}
                   </button>
                 ))}
               </div>
@@ -938,6 +971,7 @@ export default function PaginaAdmin() {
           producto={productoEditando}
           onGuardar={guardarProducto}
           onCerrar={cerrarModal}
+          categoriasExistentes={categoriasExistentes}
           subcategoriasExistentes={subcategoriasExistentes}
         />
       )}
