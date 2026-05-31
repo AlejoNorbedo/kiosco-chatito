@@ -696,7 +696,7 @@ export default function PaginaAdmin() {
                 type="number"
                 inputMode="numeric"
                 min={0}
-                value={config.monto_minimo}
+                value={config.monto_minimo || ''}
                 onChange={(e) =>
                   setConfig((prev) => ({ ...prev, monto_minimo: parseInt(e.target.value) || 0 }))
                 }
@@ -718,7 +718,7 @@ export default function PaginaAdmin() {
                 type="number"
                 inputMode="numeric"
                 min={0}
-                value={config.costo_envio}
+                value={config.costo_envio || ''}
                 onChange={(e) =>
                   setConfig((prev) => ({ ...prev, costo_envio: parseInt(e.target.value) || 0 }))
                 }
@@ -783,7 +783,7 @@ export default function PaginaAdmin() {
                 type="number"
                 inputMode="numeric"
                 min={0}
-                value={config.puntos_por_monto}
+                value={config.puntos_por_monto || ''}
                 onChange={(e) =>
                   setConfig((prev) => ({ ...prev, puntos_por_monto: parseInt(e.target.value) || 0 }))
                 }
@@ -801,7 +801,7 @@ export default function PaginaAdmin() {
                 type="number"
                 inputMode="numeric"
                 min={0}
-                value={config.puntos_para_canje}
+                value={config.puntos_para_canje || ''}
                 onChange={(e) =>
                   setConfig((prev) => ({ ...prev, puntos_para_canje: parseInt(e.target.value) || 0 }))
                 }
@@ -923,8 +923,7 @@ export default function PaginaAdmin() {
                 type="number"
                 inputMode="numeric"
                 min={0}
-                max={100}
-                value={config.recargo_transferencia_pct}
+                value={config.recargo_transferencia_pct || ''}
                 onChange={(e) =>
                   setConfig((prev) => ({ ...prev, recargo_transferencia_pct: parseInt(e.target.value) || 0 }))
                 }
