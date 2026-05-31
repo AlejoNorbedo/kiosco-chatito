@@ -464,21 +464,21 @@ export default function PaginaAdmin() {
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-800 text-sm truncate flex items-center gap-1.5">
-                        {producto.nombre}
-                        {producto.destacado && <span className="text-yellow-400 text-xs">★</span>}
+                      <p className="font-medium text-gray-800 text-sm flex items-center gap-1.5 min-w-0">
+                        <span className="truncate min-w-0">{producto.nombre}</span>
+                        {producto.destacado && <span className="flex-shrink-0 text-yellow-400 text-xs">★</span>}
                         {!producto.suma_puntos && (
-                          <span className="text-[10px] font-extrabold text-white bg-gray-400 px-1.5 py-0.5 rounded-full leading-none">
+                          <span className="flex-shrink-0 text-[10px] font-extrabold text-white bg-gray-400 px-1.5 py-0.5 rounded-full leading-none">
                             sin pts
                           </span>
                         )}
                         {producto.precio_oferta !== null && (
-                          <span className="text-[10px] font-extrabold text-white bg-[#CC0000] px-1.5 py-0.5 rounded-full leading-none">
+                          <span className="flex-shrink-0 text-[10px] font-extrabold text-white bg-[#CC0000] px-1.5 py-0.5 rounded-full leading-none">
                             OFERTA
                           </span>
                         )}
                         {producto.recargo_transferencia && (
-                          <span className="text-[10px] font-extrabold text-white bg-orange-400 px-1.5 py-0.5 rounded-full leading-none">
+                          <span className="flex-shrink-0 text-[10px] font-extrabold text-white bg-orange-400 px-1.5 py-0.5 rounded-full leading-none">
                             +transf
                           </span>
                         )}
