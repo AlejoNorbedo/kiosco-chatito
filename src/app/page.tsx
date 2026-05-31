@@ -41,11 +41,12 @@ export default function PaginaCatalogo() {
   const [orden, setOrden] = useState<OrdenProductos>('creacion')
   const [carritoAbierto, setCarritoAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [configHorario, setConfigHorario] = useState<Pick<Configuracion, 'horario_activo' | 'horario_apertura' | 'horario_cierre' | 'dias_activos'>>({
+  const [configHorario, setConfigHorario] = useState<Pick<Configuracion, 'horario_activo' | 'horario_apertura' | 'horario_cierre' | 'dias_activos' | 'recargo_transferencia_pct'>>({
     horario_activo: false,
     horario_apertura: '09:00',
     horario_cierre: '22:00',
     dias_activos: [0, 1, 2, 3, 4, 5, 6],
+    recargo_transferencia_pct: 0,
   })
 
   const { items, agregar, quitar, vaciar, totalItems, totalPrecio, cargando: cargandoCarrito } =
@@ -56,7 +57,7 @@ export default function PaginaCatalogo() {
   useEffect(() => {
     supabase
       .from('configuracion')
-      .select('horario_activo, horario_apertura, horario_cierre, dias_activos')
+      .select('horario_activo, horario_apertura, horario_cierre, dias_activos, recargo_transferencia_pct')
       .single()
       .then(({ data }) => { if (data) setConfigHorario(data) })
   }, [])
@@ -296,6 +297,7 @@ export default function PaginaCatalogo() {
                   itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
                   onAgregar={agregar}
                   onQuitar={quitar}
+                  recargoTransferenciaPct={configHorario.recargo_transferencia_pct}
                 />
               ))}
             </div>
@@ -353,6 +355,7 @@ export default function PaginaCatalogo() {
                   itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
                   onAgregar={agregar}
                   onQuitar={quitar}
+                  recargoTransferenciaPct={configHorario.recargo_transferencia_pct}
                 />
               ))}
             </div>

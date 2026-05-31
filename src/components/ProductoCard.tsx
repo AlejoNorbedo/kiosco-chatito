@@ -8,6 +8,7 @@ type Props = {
   itemEnCarrito: ItemCarrito | undefined
   onAgregar: (producto: Producto) => void
   onQuitar: (productoId: string) => void
+  recargoTransferenciaPct?: number
 }
 
 export default function ProductoCard({
@@ -15,6 +16,7 @@ export default function ProductoCard({
   itemEnCarrito,
   onAgregar,
   onQuitar,
+  recargoTransferenciaPct = 0,
 }: Props) {
   const cantidad = itemEnCarrito?.cantidad ?? 0
   const agotado = producto.stock === 0
@@ -69,6 +71,11 @@ export default function ProductoCard({
         ) : (
           <p className="text-[#CC0000] font-extrabold text-base">
             ${producto.precio.toLocaleString('es-AR')}
+          </p>
+        )}
+        {producto.recargo_transferencia && recargoTransferenciaPct > 0 && (
+          <p className="text-[10px] text-orange-500 font-semibold leading-tight -mt-0.5">
+            +{recargoTransferenciaPct}% con transferencia
           </p>
         )}
 
