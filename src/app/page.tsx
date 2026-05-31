@@ -323,6 +323,7 @@ export default function PaginaCatalogo() {
                       itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
                       onAgregar={agregar}
                       onQuitar={quitar}
+                      recargoTransferenciaPct={configHorario.recargo_transferencia_pct}
                     />
                   ))}
                 </div>
@@ -340,6 +341,7 @@ export default function PaginaCatalogo() {
                         itemEnCarrito={items.find((i) => i.producto.id === producto.id)}
                         onAgregar={agregar}
                         onQuitar={quitar}
+                        recargoTransferenciaPct={configHorario.recargo_transferencia_pct}
                       />
                     ))}
                   </div>
