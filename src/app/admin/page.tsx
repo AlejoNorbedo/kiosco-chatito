@@ -94,11 +94,19 @@ export default function PaginaAdmin() {
     [productos]
   )
   const [busquedaProductos, setBusquedaProductos] = useState('')
+  const [categoriaAdmin, setCategoriaAdmin] = useState('Todos')
+  const categoriasAdmin = useMemo(() => {
+    const unicas = Array.from(new Set(productos.map((p) => p.categoria))).sort()
+    return ['Todos', ...unicas]
+  }, [productos])
   const productosFiltradosBusqueda = useMemo(() => {
-    if (!busquedaProductos.trim()) return productosSorted
-    const term = busquedaProductos.trim().toLowerCase()
-    return productosSorted.filter((p) => p.nombre.toLowerCase().includes(term))
-  }, [productosSorted, busquedaProductos])
+    let base = categoriaAdmin === 'Todos' ? productosSorted : productosSorted.filter((p) => p.categoria === categoriaAdmin)
+    if (busquedaProductos.trim()) {
+      const term = busquedaProductos.trim().toLowerCase()
+      base = base.filter((p) => p.nombre.toLowerCase().includes(term))
+    }
+    return base
+  }, [productosSorted, busquedaProductos, categoriaAdmin])
   const [filtroEstado, setFiltroEstado] = useState<EstadoPedido | 'todos'>('todos')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [mensajeConfig, setMensajeConfig] = useState('')
@@ -356,9 +364,27 @@ export default function PaginaAdmin() {
               />
             </div>
 
+            {categoriasAdmin.length > 2 && (
+              <div className="flex gap-1.5 mb-3 overflow-x-auto scrollbar-hide pb-1">
+                {categoriasAdmin.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoriaAdmin(cat)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      categoriaAdmin === cat
+                        ? 'bg-[#CC0000] text-white'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-4">
               <p className="text-sm text-gray-500">
-                {busquedaProductos.trim()
+                {busquedaProductos.trim() || categoriaAdmin !== 'Todos'
                   ? `${productosFiltradosBusqueda.length} resultado${productosFiltradosBusqueda.length !== 1 ? 's' : ''}`
                   : `${productos.length} productos`}
               </p>
