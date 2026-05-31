@@ -6,11 +6,12 @@ import type { Configuracion, DatosCheckout } from '@/types'
 type Props = {
   config: Configuracion
   totalProductos: number
+  subtotalRecargable: number
   onEnviar: (datos: DatosCheckout, totalFinal: number) => void
   onVolver: () => void
 }
 
-export default function FormularioCheckout({ config, totalProductos, onEnviar }: Props) {
+export default function FormularioCheckout({ config, totalProductos, subtotalRecargable, onEnviar }: Props) {
   const [form, setForm] = useState<DatosCheckout>({
     nombre: '',
     tipoEntrega: 'retiro',
@@ -24,7 +25,13 @@ export default function FormularioCheckout({ config, totalProductos, onEnviar }:
   const [errores, setErrores] = useState<Partial<Record<keyof DatosCheckout, string>>>({})
 
   const costoEnvio = form.tipoEntrega === 'envio' ? config.costo_envio : 0
-  const totalFinal = totalProductos + costoEnvio
+  const recargo =
+    form.metodoPago === 'transferencia' &&
+    (config.recargo_transferencia_pct ?? 0) > 0 &&
+    subtotalRecargable > 0
+      ? Math.round(subtotalRecargable * (config.recargo_transferencia_pct ?? 0) / 100)
+      : 0
+  const totalFinal = totalProductos + costoEnvio + recargo
 
   function set(campo: keyof DatosCheckout, valor: string) {
     setForm((prev) => ({ ...prev, [campo]: valor }))
@@ -137,6 +144,12 @@ export default function FormularioCheckout({ config, totalProductos, onEnviar }:
           </div>
         </div>
 
+        {form.metodoPago === 'transferencia' && (config.recargo_transferencia_pct ?? 0) > 0 && subtotalRecargable > 0 && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 -mt-2">
+            Algunos productos tienen un recargo del {config.recargo_transferencia_pct}% por pago con transferencia.
+          </p>
+        )}
+
         {/* Con cuánto abona (solo efectivo) */}
         {form.metodoPago === 'efectivo' && (
           <Campo label="¿Con cuánto abonás? (opcional)" error={undefined}>
@@ -190,18 +203,26 @@ export default function FormularioCheckout({ config, totalProductos, onEnviar }:
       {/* Pie: total + botón */}
       <div className="border-t border-gray-100 p-4 flex flex-col gap-3">
         <div className="flex flex-col gap-1">
-          {form.tipoEntrega === 'envio' && config.costo_envio > 0 && (
+          {(form.tipoEntrega === 'envio' && config.costo_envio > 0) || recargo > 0 ? (
             <>
               <div className="flex justify-between text-sm text-gray-400">
                 <span>Productos</span>
                 <span>${totalProductos.toLocaleString('es-AR')}</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-400">
-                <span>Envío</span>
-                <span>+${config.costo_envio.toLocaleString('es-AR')}</span>
-              </div>
+              {form.tipoEntrega === 'envio' && config.costo_envio > 0 && (
+                <div className="flex justify-between text-sm text-gray-400">
+                  <span>Envío</span>
+                  <span>+${config.costo_envio.toLocaleString('es-AR')}</span>
+                </div>
+              )}
+              {recargo > 0 && (
+                <div className="flex justify-between text-sm text-amber-600">
+                  <span>Recargo transferencia ({config.recargo_transferencia_pct}%)</span>
+                  <span>+${recargo.toLocaleString('es-AR')}</span>
+                </div>
+              )}
             </>
-          )}
+          ) : null}
           <div className="flex justify-between items-center px-1">
             <span className="text-gray-500 font-medium">Total</span>
             <span className="text-2xl font-extrabold text-gray-800 tabular-nums">

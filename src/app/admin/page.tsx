@@ -78,6 +78,7 @@ export default function PaginaAdmin() {
     horario_apertura: '09:00',
     horario_cierre: '22:00',
     dias_activos: [0, 1, 2, 3, 4, 5, 6],
+    recargo_transferencia_pct: 0,
   })
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -415,6 +416,11 @@ export default function PaginaAdmin() {
                         {producto.precio_oferta !== null && (
                           <span className="text-[10px] font-extrabold text-white bg-[#CC0000] px-1.5 py-0.5 rounded-full leading-none">
                             OFERTA
+                          </span>
+                        )}
+                        {producto.recargo_transferencia && (
+                          <span className="text-[10px] font-extrabold text-white bg-orange-400 px-1.5 py-0.5 rounded-full leading-none">
+                            +transf
                           </span>
                         )}
                       </p>
@@ -843,6 +849,32 @@ export default function PaginaAdmin() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Recargo por transferencia */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-1">Recargo por transferencia</p>
+              <p className="text-xs text-gray-400 mb-3">
+                Se aplica solo a los productos marcados con "Recargo por transferencia". Ponelo en 0 para desactivarlo.
+              </p>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Porcentaje de recargo (%)
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={100}
+                value={config.recargo_transferencia_pct}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, recargo_transferencia_pct: parseInt(e.target.value) || 0 }))
+                }
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-green-500 bg-white"
+                placeholder="0"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">
+                Ej: 10 → un 10% más sobre esos productos cuando el cliente paga con transferencia.
+              </p>
             </div>
 
             {/* Guardar */}

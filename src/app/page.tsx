@@ -81,6 +81,22 @@ export default function PaginaCatalogo() {
     cargarProductos()
   }, [])
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('catalogo-productos-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => {
+        supabase
+          .from('productos')
+          .select('*')
+          .eq('activo', true)
+          .order('created_at', { ascending: true })
+          .then(({ data }) => { if (data) setProductos(data) })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
   const categorias = useMemo(() => {
     const unicas = Array.from(new Set(productos.map((p) => p.categoria)))
     return ['Todos', ...unicas.sort()]

@@ -27,6 +27,7 @@ const CONFIG_DEFECTO: Configuracion = {
   horario_apertura: '09:00',
   horario_cierre: '22:00',
   dias_activos: [0, 1, 2, 3, 4, 5, 6],
+  recargo_transferencia_pct: 0,
 }
 
 function estaAbierto(config: Configuracion): boolean {
@@ -63,8 +64,19 @@ export default function Carrito({
       })
   }, [])
 
+  const subtotalRecargable = items.reduce(
+    (acc, i) => i.producto.recargo_transferencia
+      ? acc + (i.producto.precio_oferta ?? i.producto.precio) * i.cantidad
+      : acc,
+    0
+  )
+
   function armarMensajeWhatsApp(datos: DatosCheckout, totalFinal: number): string {
     const costoEnvio = datos.tipoEntrega === 'envio' ? config.costo_envio : 0
+    const recargo =
+      datos.metodoPago === 'transferencia' && (config.recargo_transferencia_pct ?? 0) > 0 && subtotalRecargable > 0
+        ? Math.round(subtotalRecargable * (config.recargo_transferencia_pct ?? 0) / 100)
+        : 0
 
     const detalles = items.map((i) => {
       const precioEfectivo = i.producto.precio_oferta ?? i.producto.precio
@@ -114,9 +126,10 @@ export default function Carrito({
 
     partes.push('')
     partes.push('*--- TOTAL ---*')
-    if (costoEnvio > 0) {
+    if (costoEnvio > 0 || recargo > 0) {
       partes.push(`Subtotal productos: $${totalPrecio.toLocaleString('es-AR')}`)
-      partes.push(`Costo de envio: $${costoEnvio.toLocaleString('es-AR')}`)
+      if (costoEnvio > 0) partes.push(`Costo de envio: $${costoEnvio.toLocaleString('es-AR')}`)
+      if (recargo > 0) partes.push(`Recargo transferencia (${config.recargo_transferencia_pct}%): $${recargo.toLocaleString('es-AR')}`)
     }
     partes.push(`*Total: $${totalFinal.toLocaleString('es-AR')}*`)
 
@@ -331,6 +344,7 @@ export default function Carrito({
           <FormularioCheckout
             config={config}
             totalProductos={totalPrecio}
+            subtotalRecargable={subtotalRecargable}
             onEnviar={handleEnviar}
             onVolver={() => setPaso('carrito')}
           />

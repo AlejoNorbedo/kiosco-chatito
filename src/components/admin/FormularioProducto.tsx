@@ -14,6 +14,7 @@ type Campos = {
   activo: boolean
   destacado: boolean
   suma_puntos: boolean
+  recargo_transferencia: boolean
 }
 
 type Props = {
@@ -35,6 +36,7 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar, subc
     activo: producto?.activo ?? true,
     destacado: producto?.destacado ?? false,
     suma_puntos: producto?.suma_puntos ?? true,
+    recargo_transferencia: producto?.recargo_transferencia ?? false,
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -135,6 +137,7 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar, subc
         activo: campos.activo,
         destacado: campos.destacado,
         suma_puntos: campos.suma_puntos,
+        recargo_transferencia: campos.recargo_transferencia,
       })
     } catch {
       setError('Ocurrió un error. Intentá de nuevo.')
@@ -307,6 +310,15 @@ export default function FormularioProducto({ producto, onGuardar, onCerrar, subc
                 className="w-4 h-4 accent-blue-500"
               />
               <span className="text-sm font-medium text-gray-700">Suma puntos de fidelización</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={campos.recargo_transferencia}
+                onChange={(e) => actualizar('recargo_transferencia', e.target.checked)}
+                className="w-4 h-4 accent-orange-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Recargo por transferencia</span>
             </label>
           </div>
 

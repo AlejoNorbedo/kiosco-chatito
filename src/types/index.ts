@@ -9,6 +9,7 @@ export type Producto = {
   activo: boolean
   destacado: boolean
   suma_puntos: boolean
+  recargo_transferencia: boolean
   stock: number
   created_at: string
 }
@@ -50,6 +51,7 @@ export type Configuracion = {
   horario_apertura: string
   horario_cierre: string
   dias_activos: number[]
+  recargo_transferencia_pct: number
 }
 
 export type Cliente = {
