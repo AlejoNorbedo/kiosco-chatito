@@ -855,7 +855,7 @@ export default function PaginaAdmin() {
             <div className="bg-white rounded-xl border border-gray-100 p-4">
               <p className="text-sm font-semibold text-gray-700 mb-1">Recargo por transferencia</p>
               <p className="text-xs text-gray-400 mb-3">
-                Se aplica solo a los productos marcados con "Recargo por transferencia". Ponelo en 0 para desactivarlo.
+                Se aplica solo a los productos con el flag de recargo activado. Ponelo en 0 para desactivarlo.
               </p>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
                 Porcentaje de recargo (%)
