@@ -153,8 +153,11 @@ export default function TabClientes() {
 
   async function canjear(cliente: Cliente) {
     if (!config.puntos_para_canje) return
+    const disponibles = cliente.puntos_acumulados - cliente.puntos_canjeados
+    const despues = disponibles - config.puntos_para_canje
     const descripcion = config.mensaje_canje || 'el premio'
-    if (!confirm(`¿Canjear ${config.puntos_para_canje} puntos de ${cliente.nombre} por ${descripcion}?`)) return
+    const msg = `¿Confirmar entrega de "${descripcion}" a ${cliente.nombre}?\n\nSe descontarán ${config.puntos_para_canje} puntos.\nLe quedarán ${despues} puntos disponibles.`
+    if (!confirm(msg)) return
 
     setCanjeando(cliente.id)
     try {
@@ -258,9 +261,9 @@ export default function TabClientes() {
                           type="button"
                           onClick={() => canjear(cliente)}
                           disabled={canjeando === cliente.id}
-                          className="bg-[#CC0000] hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                          className="bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
                         >
-                          {canjeando === cliente.id ? '...' : 'Canjear'}
+                          {canjeando === cliente.id ? '...' : '🎁 Entregar premio'}
                         </button>
                       )}
                       <button
@@ -423,6 +426,7 @@ function ModalEditar({
   guardando: boolean
   error: string | null
 }) {
+  const disponibles = cliente.puntos_acumulados - cliente.puntos_canjeados
   const [form, setForm] = useState<FormEditar>({
     nombre: cliente.nombre,
     telefono: cliente.telefono,
@@ -480,20 +484,30 @@ function ModalEditar({
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
               Ajuste de puntos
             </label>
-            <input
-              type="number"
-              inputMode="numeric"
-              placeholder="Ej: 50 o -50"
-              value={form.ajuste_puntos}
-              onChange={(e) => set('ajuste_puntos', e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#CC0000]"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Puntos actuales:{' '}
-              <strong>{cliente.puntos_acumulados - cliente.puntos_canjeados} disponibles</strong>
+            <div className="flex gap-2 mb-1.5">
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Ej: 50 o -50"
+                value={form.ajuste_puntos}
+                onChange={(e) => set('ajuste_puntos', e.target.value)}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#CC0000]"
+              />
+              {disponibles > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { set('ajuste_puntos', String(-disponibles)); set('concepto', 'Limpieza de puntos') }}
+                  className="flex-shrink-0 text-xs font-semibold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 px-3 rounded-xl transition-colors"
+                >
+                  Limpiar todo
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-400">
+              Disponibles: <strong>{disponibles} pts</strong>
               {ajuste !== 0 && (
                 <span className={ajuste > 0 ? ' text-green-600' : ' text-red-500'}>
-                  {' → '}{Math.max(0, (cliente.puntos_acumulados + ajuste) - cliente.puntos_canjeados)} disponibles
+                  {' → '}{Math.max(0, (cliente.puntos_acumulados + ajuste) - cliente.puntos_canjeados)} pts
                 </span>
               )}
             </p>
