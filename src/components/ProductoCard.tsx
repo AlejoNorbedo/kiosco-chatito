@@ -30,6 +30,7 @@ export default function ProductoCard({
             src={producto.imagen_url}
             alt={producto.nombre}
             fill
+            unoptimized
             className={`object-contain p-2 ${agotado ? 'grayscale opacity-50' : ''}`}
             sizes="(max-width: 640px) 50vw, 33vw"
           />
