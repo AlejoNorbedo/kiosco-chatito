@@ -17,6 +17,8 @@ App web para el kiosco de barrio "Kiosco Chatito". Permite a los clientes ver el
 - Siempre manejar errores y estados de carga
 - **Mobile-first** — la mayoría de los clientes usan el celular
 - No agregar comentarios obvios; solo cuando el "por qué" no es evidente
+- Antes de commitear: `npm run lint && npm run typecheck && npm run build` (es lo mismo que corre CI en cada push)
+- **Nada de precios ni puntos calculados en el navegador**: lo que decide plata se calcula en el servidor contra la base
 
 ## Paleta visual
 
@@ -60,7 +62,19 @@ RLS: SELECT público solo en filas con `activo = true`. Realtime habilitado (`su
 | `puntos_generados` | integer | 0 | Puntos que generó este pedido (solo de items con suma_puntos=true) |
 | `created_at` | timestamptz | now() | |
 
-RLS: INSERT y SELECT públicos. Realtime habilitado.
+RLS: **activo y sin políticas** — la anon key no lee ni escribe esta tabla (guarda nombres, direcciones y teléfonos). Solo entra la service role desde las API Routes. El alta pasa exclusivamente por `POST /api/pedidos`.
+
+### Tabla `avisos_pedidos`
+
+Tabla auxiliar para el aviso realtime de pedido nuevo. Solo tiene ids, ningún dato del cliente.
+
+| Columna | Tipo | Default | Notas |
+|---------|------|---------|-------|
+| `id` | uuid PK | gen_random_uuid() | |
+| `pedido_id` | uuid FK → pedidos | | ON DELETE CASCADE |
+| `created_at` | timestamptz | now() | |
+
+La llena un trigger `AFTER INSERT ON pedidos`. RLS: SELECT público (es inocua). Realtime habilitado.
 
 El costo de envío no se almacena como columna separada — se deriva de `total − suma(item.precio × item.cantidad) − recargo` cuando `datos_cliente.tipoEntrega === 'envio'`.
 
@@ -102,6 +116,8 @@ Clientes del sistema de fidelización. Se crean automáticamente cuando un clien
 
 `puntos disponibles = puntos_acumulados - puntos_canjeados`
 
+RLS: activo y sin políticas, igual que `pedidos` e `historial_puntos`. Antes estaba **desactivado**, lo que dejaba los teléfonos de todos los clientes legibles con la anon key.
+
 ### Tabla `historial_puntos`
 
 Registro de movimientos de puntos por cliente.
@@ -133,7 +149,9 @@ Definidas en `.env.local` (ver `.env.local.example`).
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sí | Clave anon pública (formato `sb_publishable_*`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Sí | Service role key — solo API Routes, nunca al cliente |
 | `NEXT_PUBLIC_WHATSAPP_NUMERO` | Sí | Número sin `+` ni espacios (ej: `5491112345678`) |
-| `ADMIN_PASSWORD` | Sí | Contraseña del panel admin |
+| `ADMIN_PASSWORD` | Sí | Contraseña del panel admin (`/admin`) |
+| `EMPLEADA_PASSWORD` | Sí | Contraseña del panel de empleadas (`/empleada`) |
+| `SESSION_SECRET` | Recomendada | Clave con la que se firman las cookies de sesión. Si falta, se usa `ADMIN_PASSWORD` como respaldo. Definirla permite cambiar contraseñas sin cerrar sesiones y viceversa |
 | `NEXT_PUBLIC_INSTAGRAM_URL` | No | URL completa de Instagram; si no se define, el ícono no aparece |
 
 ---
@@ -146,11 +164,16 @@ Definidas en `.env.local` (ver `.env.local.example`).
 4. `supabase/migration_configuracion.sql` — tabla `configuracion`, columna `datos_cliente` en pedidos
 5. `supabase/migration_estados.sql` — columna `estado` en pedidos
 6. `supabase/migration_descuentos_destacados.sql` — columnas `precio_oferta` y `destacado` en productos
-7. `supabase/migration_fidelizacion.sql` — tablas `clientes` e `historial_puntos`, columnas de fidelización en `configuracion`, columna `puntos_generados` en pedidos, función `eliminar_cliente`
-8. `supabase/migration_suma_puntos.sql` — columna `suma_puntos` en productos
-9. `supabase/migration_subcategorias.sql` — columna `subcategoria` en productos
-10. `supabase/migration_horario.sql` — columnas de horario en `configuracion`
-11. `supabase/migration_recargo_transferencia.sql` — columna `recargo_transferencia` en productos, columna `recargo_transferencia_pct` en configuracion, habilita Realtime en tabla `productos`
+7. `supabase/migration_fidelizacion.sql` — tabla `clientes`, columnas de fidelización en `configuracion`
+8. `supabase/migration_gestion_clientes.sql` — tabla `historial_puntos`, columna `puntos_generados` en pedidos
+9. `supabase/migration_rpc_eliminar_cliente.sql` — función `eliminar_cliente`
+10. `supabase/migration_suma_puntos.sql` — columna `suma_puntos` en productos
+11. `supabase/migration_subcategoria.sql` — columna `subcategoria` en productos
+12. `supabase/migration_horario.sql` — columnas de horario en `configuracion`
+13. `supabase/migration_recargo_transferencia.sql` — columna `recargo_transferencia` en productos, columna `recargo_transferencia_pct` en configuracion, habilita Realtime en tabla `productos`
+14. `supabase/migration_seguridad_rls.sql` — cierra el acceso público a `pedidos`, `clientes` e `historial_puntos`; crea `avisos_pedidos` con su trigger y la suma a Realtime
+
+Quedaron **obsoletas** y no hay que correrlas en una instalación nueva: `migration_clientes_delete_policy.sql` y `migration_desactivar_rls_clientes.sql` — la migración 14 revierte lo que hacían.
 
 ---
 
@@ -240,15 +263,29 @@ Autenticación custom con contraseña + cookie httpOnly de 7 días. El middlewar
 - Todos los inputs numéricos usan `value={X || ''}` para evitar el bug de React que impide borrar el 0 en mobile
 - Botón "Guardar cambios" con feedback visual
 
+### Panel de empleadas (`/empleada`)
+
+Acceso acotado para quien atiende el mostrador: ve y despacha pedidos, pero no toca productos, clientes ni configuración.
+
+- Login propio con `EMPLEADA_PASSWORD` y cookie `empleada_session` (misma mecánica de token firmado que el admin)
+- **Pestaña Pedidos**: últimos 50 pedidos, filtro por estado y selector de estado inline. Sin notificación realtime (esa queda solo en el admin)
+- **Pestaña Cierre de Caja**: reutiliza el componente `CierreCaja` del admin
+- El middleware le permite `GET` y `PATCH` sobre `/api/admin/pedidos`; el resto de `/api/admin` le responde 401
+- Tiene manifest PWA propio con su `start_url`, separado del admin (hacía falta para que iOS instalara cada panel en su acceso directo)
+
 ---
 
 ## Arquitectura técnica
 
-### Autenticación del admin
-- Contraseña almacenada en `ADMIN_PASSWORD` (env var)
-- Login: `POST /api/auth` → setea cookie `admin_session` httpOnly por 7 días
-- Middleware valida la cookie en cada request a rutas protegidas
-- Sin Supabase Auth — sistema propio simple para un solo usuario
+### Autenticación (`src/lib/sesion.ts`)
+Sin Supabase Auth — sistema propio para dos roles: `admin` y `empleada`.
+
+- Login: `POST /api/auth` (admin) o `POST /api/empleada/auth` (empleada) → setea una cookie httpOnly de 7 días
+- **La cookie guarda un token firmado, no la contraseña.** Formato `payload.firma`, donde `payload` es `{ rol, exp }` en base64url y `firma` es un HMAC-SHA256 sobre ese payload
+- El secreto es `SESSION_SECRET` (o `ADMIN_PASSWORD` como respaldo) concatenado con el rol, para que un token de empleada nunca valide como admin
+- Se usa **Web Crypto (`crypto.subtle`)** y no el módulo `crypto` de Node: el middleware corre en Edge Runtime
+- Las contraseñas se comparan por su hash SHA-256 en tiempo constante, así el tiempo de respuesta no filtra cuántos caracteres acertó quien intenta adivinarla
+- `src/lib/rateLimit.ts` bloquea la IP 15 minutos tras 8 intentos fallidos. Es un `Map` en memoria: en Vercel es por instancia, así que frena fuerza bruta simple, no un ataque distribuido
 
 ### Clientes de Supabase
 - `src/lib/supabase.ts` — cliente anon, para componentes cliente y lectura pública
@@ -256,21 +293,35 @@ Autenticación custom con contraseña + cookie httpOnly de 7 días. El middlewar
 
 ### Middleware (`src/middleware.ts`)
 - Matcher regex `/admin(.*)` — no usar `:path*` que falla en Vercel Edge Runtime
+- Es `async` porque verificar el HMAC del token lo es
 - Rutas API sin sesión → 401 JSON
-- Rutas de página sin sesión → redirect a `/admin/login`
-- Usuario ya autenticado en `/admin/login` → redirect a `/admin`
+- Rutas de página sin sesión → redirect a `/admin/login` o `/empleada/login`
+- Usuario ya autenticado en una página de login → redirect a su panel
+- `/api/admin/pedidos` acepta admin **o** empleada; el resto de `/api/admin` es solo admin
+
+### Alta de pedidos (`POST /api/pedidos`)
+Es la **única** vía por la que entra un pedido del cliente, y el navegador no fija precios.
+
+- El navegador manda solo `{ items: [{ producto_id, cantidad }], datos }`
+- El servidor lee los productos y la configuración de la base y recalcula subtotal, costo de envío, recargo por transferencia, total y puntos
+- Valida: producto existente y `activo`, cantidades enteras 1–99, monto mínimo, teléfono si `telefono_requerido`, y recorta los strings del formulario
+- Devuelve los totales, que son los que el cliente usa para armar el mensaje de WhatsApp — así el mensaje refleja lo que quedó guardado
+- Si falla la acreditación de puntos, el pedido igual se guarda: el admin los ajusta a mano
+
+> Antes el navegador insertaba directo en `pedidos` con el total que él mismo calculaba y pedía los puntos a un `/api/fidelizacion` público pasándole el monto. Con la consola abierta se podía cargar un pedido de $1 o regalarse puntos.
 
 ### Carrito
 - Estado en `localStorage` via hook `useCarrito` (key: `'kiosco-carrito'`)
 - Persiste entre recargas de página
-- `totalPrecio` usa `precio_oferta ?? precio`
-- Al enviar: guarda en Supabase (fire-and-forget) y abre WhatsApp simultáneamente
+- `totalPrecio` usa `precio_oferta ?? precio` — para mostrar; el total que vale lo calcula el servidor
+- Al enviar: `window.open('', '_blank')` **sincrónico** (dentro del gesto del usuario, si no el celular lo bloquea), después `await` al POST, y recién ahí se le asigna la URL de WhatsApp. Si el popup fue bloqueado igual, navega en la misma pestaña
+- Estados `enviando` y `errorEnvio` deshabilitan el botón y muestran el error del servidor
 
 ### Sistema de fidelización
 - Puntos calculados solo sobre items con `suma_puntos = true` usando precio efectivo
-- `puntos_ganados = Math.floor(subtotalElegible / puntos_por_monto)`
+- `puntos_ganados = Math.floor(subtotalElegible / puntos_por_monto)` — se calcula **en el servidor**, dentro de `POST /api/pedidos`
 - Solo se procesan si el cliente proporcionó teléfono
-- Creación/actualización de cliente via `POST /api/fidelizacion` (upsert por teléfono)
+- Creación/actualización de cliente por upsert según teléfono
 - `puntos disponibles = puntos_acumulados - puntos_canjeados` — los puntos canjeados nunca se borran, solo se acumulan
 
 ### Recargo por transferencia
@@ -280,9 +331,24 @@ Autenticación custom con contraseña + cookie httpOnly de 7 días. El middlewar
 - Se muestra en la tarjeta del producto, en el desglose del checkout y en el mensaje de WhatsApp
 
 ### Realtime (Supabase)
-- **Admin → pedidos**: canal `admin-pedidos-realtime`, evento INSERT. Usa `tabRef` para evitar stale closure al verificar si el admin está en la pestaña Pedidos
+- **Admin → avisos de pedido**: canal `admin-avisos-pedidos`, evento INSERT sobre `avisos_pedidos`. Con el `pedido_id` del payload pide el pedido completo a `GET /api/admin/pedidos?id=…`. Usa `tabRef` para evitar stale closure al verificar si el admin está en la pestaña Pedidos
+  - No escucha `pedidos` directamente porque esa tabla ya no es legible con la anon key, y Realtime aplica RLS: no llegaría ningún evento
 - **Catálogo público → productos**: canal `catalogo-productos-realtime`, evento `*`. Al detectar cualquier cambio, re-fetcha la lista completa con el filtro `activo=true`
-- Ambas tablas deben estar en la publicación de realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE pedidos; ALTER PUBLICATION supabase_realtime ADD TABLE productos;`
+- Ambas tablas deben estar en la publicación de realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE avisos_pedidos; ALTER PUBLICATION supabase_realtime ADD TABLE productos;`
+
+### Row Level Security
+La anon key viaja en el bundle del navegador: todo lo que ella pueda leer es público de hecho.
+
+| Tabla | Acceso con anon key |
+|---|---|
+| `productos` | SELECT donde `activo = true` |
+| `configuracion` | SELECT |
+| `avisos_pedidos` | SELECT (solo ids, sin datos personales) |
+| `pedidos` | **ninguno** — RLS activo, cero políticas |
+| `clientes` | **ninguno** |
+| `historial_puntos` | **ninguno** |
+
+`service_role` tiene BYPASSRLS, así que las API Routes siguen accediendo a todo sin necesidad de políticas `TO service_role`.
 
 ---
 
@@ -290,13 +356,16 @@ Autenticación custom con contraseña + cookie httpOnly de 7 días. El middlewar
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/api/auth` | Login admin — setea cookie |
+| POST | `/api/auth` | Login admin — setea cookie con token firmado |
 | DELETE | `/api/auth` | Logout admin — borra cookie |
+| POST | `/api/empleada/auth` | Login empleada |
+| DELETE | `/api/empleada/auth` | Logout empleada |
+| POST | `/api/pedidos` | **Público.** Alta de pedido: recalcula precios y puntos contra la base |
 | GET | `/api/admin/productos` | Todos los productos |
 | POST | `/api/admin/productos` | Crear producto |
 | PATCH | `/api/admin/productos/[id]` | Editar producto |
 | DELETE | `/api/admin/productos/[id]` | Eliminar producto |
-| GET | `/api/admin/pedidos` | Pedidos (params: `desde`, `hasta`, `estado`, `telefono`) |
+| GET | `/api/admin/pedidos` | Pedidos (params: `id`, `desde`, `hasta`, `estado`, `telefono`). Con `id` devuelve uno solo — lo usa el aviso realtime. Accesible también para empleadas |
 | PATCH | `/api/admin/pedidos/[id]` | Actualizar estado u otros campos |
 | GET | `/api/admin/configuracion` | Leer configuración |
 | PATCH | `/api/admin/configuracion` | Guardar configuración |
@@ -305,7 +374,6 @@ Autenticación custom con contraseña + cookie httpOnly de 7 días. El middlewar
 | PATCH | `/api/admin/clientes/[id]` | Editar cliente, ajustar puntos o registrar canje |
 | DELETE | `/api/admin/clientes/[id]` | Eliminar cliente y su historial (RPC) |
 | GET | `/api/admin/clientes/[id]/historial` | Historial de puntos del cliente |
-| POST | `/api/fidelizacion` | Upsert de cliente por teléfono y suma de puntos |
 
 ---
 

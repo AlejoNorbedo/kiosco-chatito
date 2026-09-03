@@ -12,6 +12,15 @@ export async function GET(request: NextRequest) {
     const supabase = crearClienteAdmin()
     const telefono = searchParams.get('telefono')
 
+    // Un solo pedido: lo usa el aviso realtime para traer el que acaba de entrar.
+    const id = searchParams.get('id')
+    if (id) {
+      const { data, error } = await supabase.from('pedidos').select('*').eq('id', id).maybeSingle()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (!data) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
+      return NextResponse.json(data)
+    }
+
     let query = supabase
       .from('pedidos')
       .select('*')

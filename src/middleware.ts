@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { COOKIE_POR_ROL, tokenEsValido } from '@/lib/sesion'
 
-export function middleware(request: NextRequest) {
+function noAutorizado() {
+  return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  const sesionAdmin = request.cookies.get('admin_session')?.value
-  const passwordAdmin = process.env.ADMIN_PASSWORD
-  const esAdmin = !!passwordAdmin && sesionAdmin === passwordAdmin
-
-  const sesionEmpleada = request.cookies.get('empleada_session')?.value
-  const passwordEmpleada = process.env.EMPLEADA_PASSWORD
-  const esEmpleada = !!passwordEmpleada && sesionEmpleada === passwordEmpleada
+  const [esAdmin, esEmpleada] = await Promise.all([
+    tokenEsValido(request.cookies.get(COOKIE_POR_ROL.admin)?.value, 'admin'),
+    tokenEsValido(request.cookies.get(COOKIE_POR_ROL.empleada)?.value, 'empleada'),
+  ])
 
   // ─── Rutas /empleada ───────────────────────────────────────────────────────
 
@@ -39,23 +41,13 @@ export function middleware(request: NextRequest) {
 
   // Las empleadas pueden acceder a los pedidos (GET lista + PATCH estado)
   if (pathname.startsWith('/api/admin/pedidos')) {
-    if (!esAdmin && !esEmpleada) {
-      return new NextResponse(JSON.stringify({ error: 'No autorizado' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
+    if (!esAdmin && !esEmpleada) return noAutorizado()
     return NextResponse.next()
   }
 
   // Resto de rutas admin: solo admin
   if (!esAdmin) {
-    if (pathname.startsWith('/api/')) {
-      return new NextResponse(JSON.stringify({ error: 'No autorizado' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
+    if (pathname.startsWith('/api/')) return noAutorizado()
     return NextResponse.redirect(new URL('/admin/login', request.url))
   }
 

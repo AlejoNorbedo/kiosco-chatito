@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificar:
+    name: Lint, tipos y build
+    runs-on: ubuntu-latest
+
+    env:
+      # Valores de relleno: el build no se conecta a Supabase, pero el cliente
+      # se instancia al cargar el módulo y necesita que las variables existan.
+      NEXT_PUBLIC_SUPABASE_URL: https://ejemplo.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: clave-de-relleno-para-el-build
+      SUPABASE_SERVICE_ROLE_KEY: clave-de-relleno-para-el-build
+      NEXT_PUBLIC_WHATSAPP_NUMERO: "5491112345678"
+      ADMIN_PASSWORD: relleno
+      EMPLEADA_PASSWORD: relleno
+      SESSION_SECRET: relleno
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Chequeo de tipos
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build

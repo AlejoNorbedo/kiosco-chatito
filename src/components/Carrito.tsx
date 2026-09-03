@@ -3,7 +3,18 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import FormularioCheckout from '@/components/FormularioCheckout'
-import type { ItemCarrito, Configuracion, DatosCheckout } from '@/types'
+import type { ItemCarrito, Configuracion, DatosCheckout, ItemPedido } from '@/types'
+
+/** Totales ya recalculados por el servidor — son los que valen. */
+type RespuestaPedido = {
+  items: ItemPedido[]
+  subtotal: number
+  costo_envio: number
+  recargo: number
+  recargo_pct: number
+  total: number
+  puntos_generados: number
+}
 
 type Props = {
   items: ItemCarrito[]
@@ -51,6 +62,8 @@ export default function Carrito({
 }: Props) {
   const [paso, setPaso] = useState<'carrito' | 'checkout'>('carrito')
   const [config, setConfig] = useState<Configuracion>(CONFIG_DEFECTO)
+  const [enviando, setEnviando] = useState(false)
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
 
   const numeroWhatsApp = process.env.NEXT_PUBLIC_WHATSAPP_NUMERO
 
@@ -71,17 +84,12 @@ export default function Carrito({
     0
   )
 
-  function armarMensajeWhatsApp(datos: DatosCheckout, totalFinal: number): string {
-    const costoEnvio = datos.tipoEntrega === 'envio' ? config.costo_envio : 0
-    const recargo =
-      datos.metodoPago === 'transferencia' && (config.recargo_transferencia_pct ?? 0) > 0 && subtotalRecargable > 0
-        ? Math.round(subtotalRecargable * (config.recargo_transferencia_pct ?? 0) / 100)
-        : 0
+  function armarMensajeWhatsApp(datos: DatosCheckout, pedido: RespuestaPedido): string {
+    const { costo_envio: costoEnvio, recargo } = pedido
 
-    const detalles = items.map((i) => {
-      const precioEfectivo = i.producto.precio_oferta ?? i.producto.precio
-      return `  ${i.cantidad}x ${i.producto.nombre} — $${(precioEfectivo * i.cantidad).toLocaleString('es-AR')}`
-    })
+    const detalles = pedido.items.map(
+      (i) => `  ${i.cantidad}x ${i.nombre} — $${(i.precio * i.cantidad).toLocaleString('es-AR')}`
+    )
 
     const partes: string[] = [
       'Hola, quisiera hacer el siguiente pedido:',
@@ -127,27 +135,20 @@ export default function Carrito({
     partes.push('')
     partes.push('*--- TOTAL ---*')
     if (costoEnvio > 0 || recargo > 0) {
-      partes.push(`Subtotal productos: $${totalPrecio.toLocaleString('es-AR')}`)
+      partes.push(`Subtotal productos: $${pedido.subtotal.toLocaleString('es-AR')}`)
       if (costoEnvio > 0) partes.push(`Costo de envio: $${costoEnvio.toLocaleString('es-AR')}`)
-      if (recargo > 0) partes.push(`Recargo transferencia (${config.recargo_transferencia_pct}%): $${recargo.toLocaleString('es-AR')}`)
+      if (recargo > 0) partes.push(`Recargo transferencia (${pedido.recargo_pct}%): $${recargo.toLocaleString('es-AR')}`)
     }
-    partes.push(`*Total: $${totalFinal.toLocaleString('es-AR')}*`)
+    partes.push(`*Total: $${pedido.total.toLocaleString('es-AR')}*`)
 
     if (config.tiempo_entrega_activo && config.tiempo_entrega_texto) {
       partes.push(`Tiempo estimado: ${config.tiempo_entrega_texto}`)
     }
 
-    if (config.puntos_por_monto > 0 && datos.telefono.trim()) {
-      const subtotalParaPuntos = items.reduce(
-        (acc, i) => i.producto.suma_puntos ? acc + (i.producto.precio_oferta ?? i.producto.precio) * i.cantidad : acc,
-        0
-      )
-      if (subtotalParaPuntos > 0) {
-        const puntosGanados = Math.floor(subtotalParaPuntos / config.puntos_por_monto)
-        partes.push('')
-        partes.push('*--- PUNTOS DE FIDELIDAD ---*')
-        partes.push(`*Puntos ganados en este pedido:* ${puntosGanados}`)
-      }
+    if (pedido.puntos_generados > 0) {
+      partes.push('')
+      partes.push('*--- PUNTOS DE FIDELIDAD ---*')
+      partes.push(`*Puntos ganados en este pedido:* ${pedido.puntos_generados}`)
     }
 
     partes.push('')
@@ -156,41 +157,41 @@ export default function Carrito({
     return encodeURIComponent(partes.join('\n'))
   }
 
-  function handleEnviar(datos: DatosCheckout, totalFinal: number) {
-    const itemsParaGuardar = items.map((i) => ({
-      producto_id: i.producto.id,
-      nombre: i.producto.nombre,
-      precio: i.producto.precio_oferta ?? i.producto.precio,
-      cantidad: i.cantidad,
-    }))
+  async function handleEnviar(datos: DatosCheckout) {
+    if (enviando) return
+    setEnviando(true)
+    setErrorEnvio(null)
 
-    const subtotalParaPuntos = items.reduce(
-      (acc, i) => i.producto.suma_puntos ? acc + (i.producto.precio_oferta ?? i.producto.precio) * i.cantidad : acc,
-      0
-    )
-    const puntos_generados =
-      config.puntos_por_monto > 0 && datos.telefono.trim() && subtotalParaPuntos > 0
-        ? Math.floor(subtotalParaPuntos / config.puntos_por_monto)
-        : 0
+    // La pestaña se abre acá, dentro del gesto del usuario. Si se abriera
+    // recién al terminar el fetch, el navegador del celular la bloquearía.
+    const ventana = window.open('', '_blank')
 
-    supabase
-      .from('pedidos')
-      .insert({ items: itemsParaGuardar, total: totalFinal, datos_cliente: datos, puntos_generados })
-      .then()
-
-    if (puntos_generados > 0) {
-      fetch('/api/fidelizacion', {
+    try {
+      const respuesta = await fetch('/api/pedidos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          telefono: datos.telefono.trim(),
-          nombre: datos.nombre.trim(),
-          monto: subtotalParaPuntos,
+          items: items.map((i) => ({ producto_id: i.producto.id, cantidad: i.cantidad })),
+          datos,
         }),
-      }).catch(() => {})
-    }
+      })
 
-    window.open(`https://wa.me/${numeroWhatsApp}?text=${armarMensajeWhatsApp(datos, totalFinal)}`, '_blank')
+      const pedido = await respuesta.json()
+      if (!respuesta.ok) throw new Error(pedido?.error ?? 'No pudimos registrar el pedido')
+
+      const url = `https://wa.me/${numeroWhatsApp}?text=${armarMensajeWhatsApp(datos, pedido)}`
+      if (ventana && !ventana.closed) ventana.location.href = url
+      else window.location.href = url
+    } catch (e) {
+      ventana?.close()
+      setErrorEnvio(
+        e instanceof Error && e.message
+          ? e.message
+          : 'No pudimos enviar el pedido. Revisá tu conexión e intentá de nuevo.'
+      )
+    } finally {
+      setEnviando(false)
+    }
   }
 
   function handleCerrar() {
@@ -345,6 +346,8 @@ export default function Carrito({
             config={config}
             totalProductos={totalPrecio}
             subtotalRecargable={subtotalRecargable}
+            enviando={enviando}
+            error={errorEnvio}
             onEnviar={handleEnviar}
             onVolver={() => setPaso('carrito')}
           />

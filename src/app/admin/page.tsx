@@ -149,15 +149,24 @@ export default function PaginaAdmin() {
     if (tab === 'configuracion') cargarConfig()
   }, [tab])
 
+  // El aviso viaja por `avisos_pedidos`, que solo tiene ids: la tabla `pedidos`
+  // ya no es legible con la anon key porque guarda nombres y direcciones.
+  // El pedido completo se trae después por la API protegida.
   useEffect(() => {
     const channel = supabase
-      .channel('admin-pedidos-realtime')
+      .channel('admin-avisos-pedidos')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'pedidos' },
-        (payload) => {
-          const nuevo = payload.new as Pedido
-          setPedidos((prev) => prev.some((p) => p.id === nuevo.id) ? prev : [nuevo, ...prev])
+        { event: 'INSERT', schema: 'public', table: 'avisos_pedidos' },
+        async (payload) => {
+          const { pedido_id } = payload.new as { pedido_id: string }
+          if (!pedido_id) return
+
+          const res = await fetch(`/api/admin/pedidos?id=${pedido_id}`)
+          if (!res.ok) return
+          const nuevo: Pedido = await res.json()
+
+          setPedidos((prev) => (prev.some((p) => p.id === nuevo.id) ? prev : [nuevo, ...prev]))
           sonarNotificacion()
           mostrarToast(nuevo)
           if (tabRef.current !== 'pedidos') setNuevosPedidos((prev) => prev + 1)
