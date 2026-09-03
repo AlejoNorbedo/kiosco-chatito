@@ -39,8 +39,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Las empleadas pueden acceder a los pedidos (GET lista + PATCH estado)
-  if (pathname.startsWith('/api/admin/pedidos')) {
+  // Las empleadas atienden el mostrador: pueden ver y despachar pedidos
+  // (GET lista + PATCH estado) y cobrar ventas presenciales.
+  if (pathname.startsWith('/api/admin/pedidos') || pathname.startsWith('/api/admin/pos')) {
     if (!esAdmin && !esEmpleada) return noAutorizado()
     return NextResponse.next()
   }

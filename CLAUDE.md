@@ -59,6 +59,7 @@ RLS: SELECT público solo en filas con `activo = true`. Realtime habilitado (`su
 | `total` | numeric(10,2) NOT NULL | | Incluye costo de envío y recargo por transferencia |
 | `datos_cliente` | jsonb | null | Objeto `DatosCheckout` |
 | `estado` | text NOT NULL | 'pendiente' | 'pendiente' \| 'confirmado' \| 'cancelado' |
+| `canal` | text NOT NULL | 'whatsapp' | 'whatsapp' \| 'presencial'. CHECK. Las ventas del POS entran como 'presencial' y ya confirmadas |
 | `puntos_generados` | integer | 0 | Puntos que generó este pedido (solo de items con suma_puntos=true) |
 | `created_at` | timestamptz | now() | |
 
@@ -174,6 +175,7 @@ Definidas en `.env.local` (ver `.env.local.example`).
 13. `supabase/migration_recargo_transferencia.sql` — columna `recargo_transferencia` en productos, columna `recargo_transferencia_pct` en configuracion, habilita Realtime en tabla `productos`
 14. `supabase/migration_seguridad_rls.sql` — cierra el acceso público a `pedidos`, `clientes` e `historial_puntos`; crea `avisos_pedidos` con su trigger y la suma a Realtime
 15. `supabase/migration_puntos_cliente.sql` — columna generada `telefono_digitos` en `clientes` con su índice, para la consulta de puntos del cliente
+16. `supabase/migration_pos.sql` — columna `canal` en `pedidos` y su índice; recrea el trigger de avisos para que solo dispare con `canal = 'whatsapp'`
 
 ---
 
@@ -256,6 +258,14 @@ Autenticación custom con contraseña + cookie httpOnly de 7 días. El middlewar
 - **📋 Pedidos**: historial de pedidos del cliente filtrado por teléfono
 - **🗑️ Eliminar**: borra cliente e historial (via función RPC en Supabase)
 
+#### Pestaña Mostrador (POS)
+- Grilla de productos activos con búsqueda y filtro por categoría; un toque agrega al ticket y la tarjeta muestra la cantidad
+- Barra inferior fija con unidades y total, y botón **Cobrar**
+- Panel de cobro: items con +/−, método de pago, monto recibido con **cálculo de vuelto**, y teléfono opcional para sumar puntos
+- Al confirmar: la venta queda registrada como `canal = 'presencial'` y `estado = 'confirmado'`, descuenta stock y acredita puntos
+- Pantalla de cierre con el vuelto en grande y los puntos que sumó
+- Los productos se leen con la clave pública (solo trae activos), no por `/api/admin/productos`: así la pantalla sirve igual para el dueño y para las empleadas sin ampliarles permisos
+
 #### Pestaña QR
 - Genera el QR del catálogo con la librería `qrcode` (import dinámico, no pesa en el bundle inicial)
 - Apunta por defecto a `window.location.origin`, así siempre da al dominio correcto; el campo es editable
@@ -277,8 +287,9 @@ Acceso acotado para quien atiende el mostrador: ve y despacha pedidos, pero no t
 
 - Login propio con `EMPLEADA_PASSWORD` y cookie `empleada_session` (misma mecánica de token firmado que el admin)
 - **Pestaña Pedidos**: últimos 50 pedidos, filtro por estado y selector de estado inline. Sin notificación realtime (esa queda solo en el admin)
+- **Pestaña Mostrador**: el mismo POS que el admin — son las que atienden
 - **Pestaña Cierre de Caja**: reutiliza el componente `CierreCaja` del admin
-- El middleware le permite `GET` y `PATCH` sobre `/api/admin/pedidos`; el resto de `/api/admin` le responde 401
+- El middleware le permite `GET` y `PATCH` sobre `/api/admin/pedidos` y `POST` sobre `/api/admin/pos`; el resto de `/api/admin` le responde 401
 - Tiene manifest PWA propio con su `start_url`, separado del admin (hacía falta para que iOS instalara cada panel en su acceso directo)
 
 ---
@@ -301,6 +312,7 @@ Lo que usan dos o más pantallas vive acá, porque duplicado se desincroniza:
 - `configuracion.ts` — `CONFIG_DEFECTO` y `estaAbierto()`, que usaban por igual el catálogo, el carrito y el admin
 - `productos.ts` — `precioEfectivo()` y `ordenarProductos()`. Estaban duplicados y ya se habían desincronizado: el catálogo ordenaba por precio efectivo y el admin por precio de lista, así que un producto en oferta caía en distinto lugar en cada pantalla
 - `telefono.ts` — `variantesTelefono()`, la normalización de teléfonos argentinos
+- `ventas.ts` — el cálculo de una venta, compartido por el checkout online y el mostrador: `resolverItems()` (precios desde la base), `calcularRecargo()`, `descontarStock()` y `acreditarPuntos()`. Así las dos vías cobran y puntúan igual
 - `sesion.ts` y `rateLimit.ts` — sesiones firmadas y tope de intentos
 
 ### Identificación del cliente por teléfono
@@ -397,6 +409,7 @@ La anon key viaja en el bundle del navegador: todo lo que ella pueda leer es pú
 | GET | `/api/admin/configuracion` | Leer configuración |
 | PATCH | `/api/admin/configuracion` | Guardar configuración |
 | POST | `/api/admin/storage` | Subir imagen a Supabase Storage |
+| POST | `/api/admin/pos` | Cobrar una venta de mostrador. Accesible también para empleadas |
 | GET | `/api/admin/clientes` | Lista de clientes con puntos |
 | PATCH | `/api/admin/clientes/[id]` | Editar cliente, ajustar puntos o registrar canje |
 | DELETE | `/api/admin/clientes/[id]` | Eliminar cliente y su historial (RPC) |
@@ -404,22 +417,22 @@ La anon key viaja en el bundle del navegador: todo lo que ella pueda leer es pú
 
 ---
 
-## Lo que viene — Sistema POS
+## Canales de venta
 
-Próxima fase: **punto de venta (POS)** integrado para cobros presenciales en el mostrador del kiosco.
+Los pedidos de WhatsApp y las ventas de mostrador viven en la misma tabla `pedidos`, distinguidas por `canal`. Comparten stock, cierre de caja y fidelización, que es todo el punto de unificarlas.
 
-### Objetivo
-Unificar los pedidos online (WhatsApp) y las ventas presenciales en un único sistema, con el mismo catálogo, stock compartido y cierre de caja consolidado.
+| | `whatsapp` | `presencial` |
+|---|---|---|
+| Entra por | `POST /api/pedidos` (público) | `POST /api/admin/pos` (admin o empleada) |
+| Estado inicial | `pendiente` | `confirmado` — la plata ya se cobró |
+| Stock | se descuenta al confirmar desde el panel | se descuenta en el acto |
+| Envío y monto mínimo | sí | no, es venta directa |
+| Recargo por transferencia | sí | sí |
+| Avisa por realtime | sí | **no** — el trigger filtra por `canal = 'whatsapp'`, si no el kiosquero se avisaría a sí mismo de la venta que acaba de cargar |
 
-### Funcionalidades planificadas
-- **Pantalla POS** en `/admin/pos`: grilla de productos con búsqueda rápida, agregar al ticket con un toque
-- **Ticket de venta**: lista de items, subtotal, método de pago (efectivo/transferencia), campo de monto recibido con cálculo de vuelto automático
-- **Sin checkout de delivery**: el POS no pide dirección ni datos de envío, es venta directa en mostrador
-- **Imprimir ticket**: formato optimizado para impresoras térmicas (58mm / 80mm)
-- **Integración con Cierre de Caja**: las ventas POS se consolidan en el resumen diferenciadas por canal (`'whatsapp'` vs `'presencial'`)
+### Lo que viene
 
-### Cambios técnicos implicados
-- Agregar columna `canal` a la tabla `pedidos` con valores `'whatsapp'` | `'presencial'`
-- El Cierre de Caja deberá filtrar y agrupar por canal
-- La pantalla POS protegida igual que el resto del admin
-- Evaluar modo offline básico (service worker) si la conexión es inestable en el kiosco
+- **Ticket impreso** para el POS (térmica 58/80mm). Hoy la venta queda solo en pantalla.
+- **Modo offline** en el POS si la conexión del kiosco resulta inestable.
+- **Partir `admin/page.tsx`**, que ya pasó las 1000 líneas con 8 pestañas.
+- **Migrar a Next 16**: los avisos `high` de `npm audit` que quedan son casi todos de build (`eslint`, `workbox`, `postcss`); el de `next` aplica a self-hosted, no a Vercel. Conviene hacerlo aparte, no mezclado con features.

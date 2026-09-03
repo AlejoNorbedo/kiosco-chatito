@@ -8,11 +8,12 @@ import CierreCaja from '@/components/admin/CierreCaja'
 import TabClientes from '@/components/admin/TabClientes'
 import Dashboard from '@/components/admin/Dashboard'
 import TabQR from '@/components/admin/TabQR'
+import TabPOS from '@/components/admin/TabPOS'
 import { CONFIG_DEFECTO } from '@/lib/configuracion'
 import { ordenarProductos, type OrdenProductos } from '@/lib/productos'
 import type { Producto, Pedido, Configuracion, EstadoPedido } from '@/types'
 
-type Tab = 'dashboard' | 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'qr' | 'configuracion'
+type Tab = 'dashboard' | 'pos' | 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'qr' | 'configuracion'
 
 function sonarNotificacion() {
   try {
@@ -33,6 +34,7 @@ function sonarNotificacion() {
 
 const TAB_LABELS: Record<Tab, string> = {
   dashboard: 'Dashboard',
+  pos: 'Mostrador',
   productos: 'Productos',
   pedidos: 'Pedidos',
   cierre: 'Cierre de Caja',
@@ -587,9 +589,16 @@ export default function PaginaAdmin() {
                             })}
                             {' hs'}
                           </p>
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ESTADO_ESTILOS[estado].badge}`}>
-                            {ESTADO_ESTILOS[estado].label}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {pedido.canal === 'presencial' && (
+                              <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                                MOSTRADOR
+                              </span>
+                            )}
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ESTADO_ESTILOS[estado].badge}`}>
+                              {ESTADO_ESTILOS[estado].label}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Datos del cliente */}
@@ -951,6 +960,8 @@ export default function PaginaAdmin() {
 
         {/* TAB CLIENTES */}
         {tab === 'clientes' && <TabClientes />}
+
+        {tab === 'pos' && <TabPOS />}
 
         {tab === 'qr' && <TabQR />}
       </div>

@@ -6,7 +6,7 @@ pedidos, clientes y cierre de caja desde un panel protegido.
 
 - **Catálogo público** — `/`
 - **Panel del dueño** — `/admin`
-- **Panel de empleadas** — `/empleada` (solo pedidos y cierre de caja)
+- **Panel de empleadas** — `/empleada` (pedidos, mostrador y cierre de caja)
 
 Stack: Next.js 14 (App Router) · Supabase (Postgres + Storage + Realtime) ·
 Tailwind CSS · Vercel.
@@ -59,6 +59,7 @@ Correr los archivos de [`supabase/`](supabase/) en el SQL Editor, **en este orde
 13. `migration_recargo_transferencia.sql`
 14. `migration_seguridad_rls.sql` ← cierra el acceso público a datos sensibles
 15. `migration_puntos_cliente.sql` ← habilita la consulta de puntos del cliente
+16. `migration_pos.sql` ← agrega el canal de venta para el punto de venta
 
 También hay que habilitar Realtime en `productos`:
 
@@ -93,6 +94,7 @@ src/
 │   └── api/
 │       ├── pedidos/          alta de pedidos (público, valida contra la base)
 │       ├── puntos/           saldo de puntos del cliente (público, acotado)
+│       ├── admin/pos/        cobro de ventas en el mostrador
 │       ├── auth/             login del dueño
 │       ├── empleada/auth/    login de empleadas
 │       └── admin/            CRUD protegido por middleware
@@ -105,7 +107,8 @@ src/
 │   ├── rateLimit.ts          tope de intentos de login
 │   ├── telefono.ts           normaliza teléfonos argentinos
 │   ├── configuracion.ts      defaults de config y horario de atención
-│   └── productos.ts          precio efectivo y orden del catálogo
+│   ├── productos.ts          precio efectivo y orden del catálogo
+│   └── ventas.ts             precios, stock y puntos (online y mostrador)
 └── middleware.ts             protege /admin, /api/admin y /empleada
 ```
 

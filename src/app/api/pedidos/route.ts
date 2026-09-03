@@ -1,39 +1,22 @@
 import { NextResponse } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
-import { variantesTelefono } from '@/lib/telefono'
-import type { DatosCheckout, ItemPedido } from '@/types'
+import { acreditarPuntos, calcularRecargo, parsearItems, resolverItems } from '@/lib/ventas'
+import type { DatosCheckout } from '@/types'
 
 /**
- * Alta de pedido. Es la única vía por la que entra un pedido del cliente.
+ * Alta de pedido online. Es la única vía por la que entra un pedido del cliente.
  *
- * Antes el navegador insertaba directo en Supabase con el total que él mismo
- * calculaba, y pedía los puntos a un endpoint público pasándole el monto. Con
- * la consola abierta se podía cargar un pedido de $1 o regalarse puntos. Acá
- * el navegador solo manda qué producto y cuántas unidades: los precios, el
- * total y los puntos se recalculan contra la base.
+ * El navegador solo manda qué producto y cuántas unidades: los precios, el
+ * total y los puntos se recalculan contra la base. Antes insertaba directo en
+ * Supabase con el total que él mismo calculaba, así que con la consola abierta
+ * se podía cargar un pedido de $1 o regalarse puntos.
+ *
+ * La venta de mostrador tiene su propio endpoint en /api/admin/pos, pero ambos
+ * comparten los cálculos en lib/ventas.
  */
-
-const MAX_ITEMS = 100
-const MAX_CANTIDAD = 99
-
-type ItemEntrante = { producto_id: string; cantidad: number }
 
 function recortar(valor: unknown, largo: number): string {
   return typeof valor === 'string' ? valor.trim().slice(0, largo) : ''
-}
-
-function parsearItems(crudo: unknown): ItemEntrante[] | null {
-  if (!Array.isArray(crudo) || crudo.length === 0 || crudo.length > MAX_ITEMS) return null
-
-  const items: ItemEntrante[] = []
-  for (const item of crudo) {
-    const id = item?.producto_id
-    const cantidad = item?.cantidad
-    if (typeof id !== 'string' || !id) return null
-    if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > MAX_CANTIDAD) return null
-    items.push({ producto_id: id, cantidad })
-  }
-  return items
 }
 
 function parsearDatos(crudo: unknown): DatosCheckout | null {
@@ -79,59 +62,28 @@ export async function POST(request: Request) {
 
     const admin = crearClienteAdmin()
 
-    const [{ data: productos, error: errorProductos }, { data: config, error: errorConfig }] =
-      await Promise.all([
-        admin
-          .from('productos')
-          .select('id, nombre, precio, precio_oferta, activo, suma_puntos, recargo_transferencia')
-          .in(
-            'id',
-            items.map((i) => i.producto_id)
-          ),
-        admin.from('configuracion').select('*').single(),
-      ])
+    const [resueltos, { data: config, error: errorConfig }] = await Promise.all([
+      resolverItems(admin, items),
+      admin.from('configuracion').select('*').single(),
+    ])
 
-    if (errorProductos || errorConfig || !config) {
+    if (errorConfig || !config) {
       return NextResponse.json({ error: 'No pudimos procesar el pedido' }, { status: 500 })
+    }
+
+    if (!resueltos) {
+      return NextResponse.json(
+        { error: 'Alguno de los productos ya no está disponible. Actualizá la página.' },
+        { status: 409 }
+      )
     }
 
     if (config.telefono_requerido && !datos.telefono) {
       return NextResponse.json({ error: 'El teléfono es obligatorio' }, { status: 400 })
     }
 
-    const porId = new Map((productos ?? []).map((p) => [p.id, p]))
-
-    let subtotal = 0
-    let subtotalRecargable = 0
-    let subtotalConPuntos = 0
-    const itemsPedido: ItemPedido[] = []
-
-    for (const item of items) {
-      const producto = porId.get(item.producto_id)
-      if (!producto || !producto.activo) {
-        return NextResponse.json(
-          { error: 'Alguno de los productos ya no está disponible. Actualizá la página.' },
-          { status: 409 }
-        )
-      }
-
-      const precio = producto.precio_oferta ?? producto.precio
-      const importe = precio * item.cantidad
-
-      subtotal += importe
-      if (producto.recargo_transferencia) subtotalRecargable += importe
-      if (producto.suma_puntos) subtotalConPuntos += importe
-
-      itemsPedido.push({
-        producto_id: producto.id,
-        nombre: producto.nombre,
-        precio,
-        cantidad: item.cantidad,
-      })
-    }
-
     const montoMinimo = config.monto_minimo ?? 0
-    if (montoMinimo > 0 && subtotal < montoMinimo) {
+    if (montoMinimo > 0 && resueltos.subtotal < montoMinimo) {
       return NextResponse.json(
         { error: `El pedido mínimo es de $${montoMinimo.toLocaleString('es-AR')}` },
         { status: 400 }
@@ -140,25 +92,23 @@ export async function POST(request: Request) {
 
     const costoEnvio = datos.tipoEntrega === 'envio' ? config.costo_envio ?? 0 : 0
     const recargoPct = config.recargo_transferencia_pct ?? 0
-    const recargo =
-      datos.metodoPago === 'transferencia' && recargoPct > 0 && subtotalRecargable > 0
-        ? Math.round((subtotalRecargable * recargoPct) / 100)
-        : 0
-    const total = subtotal + costoEnvio + recargo
+    const recargo = calcularRecargo(resueltos.subtotalRecargable, recargoPct, datos.metodoPago)
+    const total = resueltos.subtotal + costoEnvio + recargo
 
     const puntosPorMonto = config.puntos_por_monto ?? 0
     const puntosGenerados =
-      puntosPorMonto > 0 && datos.telefono && subtotalConPuntos > 0
-        ? Math.floor(subtotalConPuntos / puntosPorMonto)
+      puntosPorMonto > 0 && datos.telefono && resueltos.subtotalConPuntos > 0
+        ? Math.floor(resueltos.subtotalConPuntos / puntosPorMonto)
         : 0
 
     const { data: pedido, error: errorPedido } = await admin
       .from('pedidos')
       .insert({
-        items: itemsPedido,
+        items: resueltos.itemsPedido,
         total,
         datos_cliente: datos,
         puntos_generados: puntosGenerados,
+        canal: 'whatsapp',
       })
       .select('id')
       .single()
@@ -171,7 +121,11 @@ export async function POST(request: Request) {
     let puntosAcumulados = 0
     if (puntosGenerados > 0) {
       try {
-        puntosAcumulados = await acreditarPuntos(admin, datos, puntosGenerados)
+        puntosAcumulados = await acreditarPuntos(
+          admin,
+          { telefono: datos.telefono, nombre: datos.nombre },
+          puntosGenerados
+        )
       } catch {
         puntosAcumulados = 0
       }
@@ -180,8 +134,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       pedido_id: pedido.id,
-      items: itemsPedido,
-      subtotal,
+      items: resueltos.itemsPedido,
+      subtotal: resueltos.subtotal,
       costo_envio: costoEnvio,
       recargo,
       recargo_pct: recargoPct,
@@ -192,50 +146,4 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: 'Error inesperado' }, { status: 500 })
   }
-}
-
-type ClienteAdmin = ReturnType<typeof crearClienteAdmin>
-
-async function acreditarPuntos(
-  admin: ClienteAdmin,
-  datos: DatosCheckout,
-  puntos: number
-): Promise<number> {
-  // Se busca por dígitos y no por el teléfono tal cual: el mismo cliente
-  // escribe su número distinto cada vez ("+54 11...", "011...", "11 15..."),
-  // y por igualdad exacta se le creaba un cliente nuevo —con los puntos
-  // arrancando de cero— cada vez que cambiaba el formato.
-  const variantes = variantesTelefono(datos.telefono)
-  const { data: encontrados } = await admin
-    .from('clientes')
-    .select('id, puntos_acumulados')
-    .in('telefono_digitos', variantes)
-    .order('created_at', { ascending: true })
-
-  const existente = encontrados?.[0] ?? null
-
-  let clienteId: string
-  let acumulados: number
-
-  if (existente) {
-    acumulados = existente.puntos_acumulados + puntos
-    clienteId = existente.id
-    await admin
-      .from('clientes')
-      .update({ nombre: datos.nombre, puntos_acumulados: acumulados })
-      .eq('id', existente.id)
-  } else {
-    acumulados = puntos
-    const { data: nuevo } = await admin
-      .from('clientes')
-      .insert({ telefono: datos.telefono, nombre: datos.nombre, puntos_acumulados: acumulados })
-      .select('id')
-      .single()
-    if (!nuevo) return 0
-    clienteId = nuevo.id
-  }
-
-  await admin.from('historial_puntos').insert({ cliente_id: clienteId, concepto: 'Compra', puntos })
-
-  return acumulados
 }

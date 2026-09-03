@@ -111,6 +111,12 @@ export default function CierreCaja() {
   const pedidosTransferencia = pedidos.filter((p) => p.datos_cliente?.metodoPago === 'transferencia')
   const totalEfectivo = pedidosEfectivo.reduce((acc, p) => acc + p.total, 0)
   const totalTransferencia = pedidosTransferencia.reduce((acc, p) => acc + p.total, 0)
+  // Los pedidos viejos no tienen `canal`: son todos de WhatsApp, que es lo que
+  // había antes del POS.
+  const pedidosMostrador = pedidos.filter((p) => p.canal === 'presencial')
+  const pedidosWhatsApp = pedidos.filter((p) => p.canal !== 'presencial')
+  const totalMostrador = pedidosMostrador.reduce((acc, p) => acc + p.total, 0)
+  const totalWhatsApp = pedidosWhatsApp.reduce((acc, p) => acc + p.total, 0)
 
   async function exportarPDF() {
     setExportando(true)
@@ -199,6 +205,8 @@ export default function CierreCaja() {
       seccion('MÉTODOS DE PAGO')
       fila(`Efectivo (${pedidosEfectivo.length} pedidos)`, `$${totalEfectivo.toLocaleString('es-AR')}`)
       fila(`Transferencia (${pedidosTransferencia.length} pedidos)`, `$${totalTransferencia.toLocaleString('es-AR')}`)
+      fila(`Mostrador (${pedidosMostrador.length} ventas)`, `$${totalMostrador.toLocaleString('es-AR')}`)
+      fila(`WhatsApp (${pedidosWhatsApp.length} pedidos)`, `$${totalWhatsApp.toLocaleString('es-AR')}`)
       y += 2
 
       seccion('DETALLE DE PEDIDOS')
@@ -311,6 +319,8 @@ ${totalEnvios > 0 ? `<div class="fila"><span>Total envíos</span><span>$${totalE
 <div class="sec">Métodos de Pago</div>
 <div class="fila"><span>Efectivo (${pedidosEfectivo.length} pedidos)</span><span>$${totalEfectivo.toLocaleString('es-AR')}</span></div>
 <div class="fila"><span>Transferencia (${pedidosTransferencia.length} pedidos)</span><span>$${totalTransferencia.toLocaleString('es-AR')}</span></div>
+<div class="fila"><span>Mostrador (${pedidosMostrador.length} ventas)</span><span>$${totalMostrador.toLocaleString('es-AR')}</span></div>
+<div class="fila"><span>WhatsApp (${pedidosWhatsApp.length} pedidos)</span><span>$${totalWhatsApp.toLocaleString('es-AR')}</span></div>
 <div class="sec">Detalle de Pedidos</div>${itemsHtml}
 <div class="fila tot" style="margin-top:12px"><span>TOTAL GENERAL</span><span>$${totalGeneral.toLocaleString('es-AR')}</span></div>
 </body></html>`)
@@ -436,6 +446,21 @@ ${totalEnvios > 0 ? `<div class="fila"><span>Total envíos</span><span>$${totalE
                 </div>
               </div>
 
+              {/* Desglose por canal */}
+              <div className="bg-white rounded-xl border border-gray-100 p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-3">Por canal de venta</p>
+                <div className="flex flex-col gap-2">
+                  <FilaResumen
+                    label={`Mostrador (${pedidosMostrador.length} ventas)`}
+                    valor={`$${totalMostrador.toLocaleString('es-AR')}`}
+                  />
+                  <FilaResumen
+                    label={`WhatsApp (${pedidosWhatsApp.length} pedidos)`}
+                    valor={`$${totalWhatsApp.toLocaleString('es-AR')}`}
+                  />
+                </div>
+              </div>
+
               {/* Listado de pedidos */}
               <div className="flex flex-col gap-2">
                 <p className="text-sm font-semibold text-gray-700">
@@ -448,8 +473,13 @@ ${totalEnvios > 0 ? `<div class="fila"><span>Total envíos</span><span>$${totalE
                     <div key={pedido.id} className="bg-white rounded-xl border border-gray-100 p-3">
                       <div className="flex justify-between items-start mb-1">
                         <div>
-                          <p className="text-sm font-semibold text-gray-800">
+                          <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
                             {dc?.nombre ?? '—'}
+                            {pedido.canal === 'presencial' && (
+                              <span className="text-[10px] font-bold bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">
+                                MOSTRADOR
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-gray-400 mt-0.5">
                             {new Date(pedido.created_at).toLocaleTimeString('es-AR', {

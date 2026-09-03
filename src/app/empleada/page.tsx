@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import CierreCaja from '@/components/admin/CierreCaja'
+import TabPOS from '@/components/admin/TabPOS'
 import type { Pedido, EstadoPedido } from '@/types'
 
-type Tab = 'pedidos' | 'cierre'
+type Tab = 'pedidos' | 'pos' | 'cierre'
 
 const ESTADO_ESTILOS: Record<EstadoPedido, {
   label: string
@@ -67,7 +68,7 @@ export default function PanelEmpleada() {
         </div>
 
         <div className="max-w-2xl mx-auto px-4 flex gap-1 pb-0">
-          {(['pedidos', 'cierre'] as Tab[]).map((t) => (
+          {(['pedidos', 'pos', 'cierre'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -77,7 +78,7 @@ export default function PanelEmpleada() {
                   : 'border-transparent text-white/60 hover:text-white'
               }`}
             >
-              {t === 'pedidos' ? 'Pedidos' : 'Cierre de Caja'}
+              {t === 'pedidos' ? 'Pedidos' : t === 'pos' ? 'Mostrador' : 'Cierre de Caja'}
             </button>
           ))}
         </div>
@@ -147,9 +148,16 @@ export default function PanelEmpleada() {
                             })}
                             {' hs'}
                           </p>
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ESTADO_ESTILOS[estado].badge}`}>
-                            {ESTADO_ESTILOS[estado].label}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {pedido.canal === 'presencial' && (
+                              <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                                MOSTRADOR
+                              </span>
+                            )}
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ESTADO_ESTILOS[estado].badge}`}>
+                              {ESTADO_ESTILOS[estado].label}
+                            </span>
+                          </div>
                         </div>
 
                         {dc && (
@@ -220,6 +228,8 @@ export default function PanelEmpleada() {
             })()}
           </>
         )}
+
+        {tab === 'pos' && <TabPOS />}
 
         {tab === 'cierre' && <CierreCaja />}
       </div>

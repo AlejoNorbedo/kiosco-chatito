@@ -1,7 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
 import { variantesTelefono } from '@/lib/telefono'
-import type { EstadoPedido } from '@/types'
+import { descontarStock } from '@/lib/ventas'
+import type { EstadoPedido, ItemPedido } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,27 +42,7 @@ export async function PATCH(
         .maybeSingle()
 
       if (pedidoParaStock && pedidoParaStock.estado !== 'confirmado') {
-        type ItemConId = { producto_id?: string; cantidad: number }
-        const itemsConId = (pedidoParaStock.items as ItemConId[]).filter((i) => i.producto_id)
-
-        if (itemsConId.length > 0) {
-          const ids = itemsConId.map((i) => i.producto_id!)
-          const { data: productosActuales } = await admin
-            .from('productos')
-            .select('id, stock')
-            .in('id', ids)
-
-          if (productosActuales) {
-            for (const item of itemsConId) {
-              const prod = productosActuales.find((p) => p.id === item.producto_id)
-              if (!prod) continue
-              await admin
-                .from('productos')
-                .update({ stock: Math.max(0, prod.stock - item.cantidad) })
-                .eq('id', item.producto_id!)
-            }
-          }
-        }
+        await descontarStock(admin, pedidoParaStock.items as ItemPedido[])
       }
     }
 

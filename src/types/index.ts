@@ -28,6 +28,9 @@ export type ItemPedido = {
 
 export type EstadoPedido = 'pendiente' | 'confirmado' | 'cancelado'
 
+/** 'whatsapp' = pedido online, 'presencial' = venta cobrada en el mostrador. */
+export type CanalPedido = 'whatsapp' | 'presencial'
+
 export type Pedido = {
   id: string
   items: ItemPedido[]
@@ -35,6 +38,7 @@ export type Pedido = {
   created_at: string
   datos_cliente?: DatosCheckout
   estado: EstadoPedido
+  canal: CanalPedido
   puntos_generados: number
 }
 
