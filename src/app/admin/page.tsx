@@ -7,9 +7,10 @@ import FormularioProducto from '@/components/admin/FormularioProducto'
 import CierreCaja from '@/components/admin/CierreCaja'
 import TabClientes from '@/components/admin/TabClientes'
 import Dashboard from '@/components/admin/Dashboard'
+import TabQR from '@/components/admin/TabQR'
 import type { Producto, Pedido, Configuracion, EstadoPedido } from '@/types'
 
-type Tab = 'dashboard' | 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'configuracion'
+type Tab = 'dashboard' | 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'qr' | 'configuracion'
 
 function sonarNotificacion() {
   try {
@@ -47,6 +48,7 @@ const TAB_LABELS: Record<Tab, string> = {
   pedidos: 'Pedidos',
   cierre: 'Cierre de Caja',
   clientes: 'Clientes',
+  qr: 'QR',
   configuracion: 'Configuración',
 }
 
@@ -971,6 +973,8 @@ export default function PaginaAdmin() {
 
         {/* TAB CLIENTES */}
         {tab === 'clientes' && <TabClientes />}
+
+        {tab === 'qr' && <TabQR />}
       </div>
 
       {/* Modal formulario */}

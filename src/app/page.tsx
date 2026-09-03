@@ -7,6 +7,7 @@ import { useCarrito } from '@/hooks/useCarrito'
 import ProductoCard from '@/components/ProductoCard'
 import Carrito from '@/components/Carrito'
 import ModalInstalacion from '@/components/ModalInstalacion'
+import MisPuntos from '@/components/MisPuntos'
 import type { Producto, Configuracion } from '@/types'
 
 function estaAbierto(config: Configuracion): boolean {
@@ -41,12 +42,13 @@ export default function PaginaCatalogo() {
   const [orden, setOrden] = useState<OrdenProductos>('creacion')
   const [carritoAbierto, setCarritoAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [configHorario, setConfigHorario] = useState<Pick<Configuracion, 'horario_activo' | 'horario_apertura' | 'horario_cierre' | 'dias_activos' | 'recargo_transferencia_pct'>>({
+  const [configHorario, setConfigHorario] = useState<Pick<Configuracion, 'horario_activo' | 'horario_apertura' | 'horario_cierre' | 'dias_activos' | 'recargo_transferencia_pct' | 'puntos_por_monto'>>({
     horario_activo: false,
     horario_apertura: '09:00',
     horario_cierre: '22:00',
     dias_activos: [0, 1, 2, 3, 4, 5, 6],
     recargo_transferencia_pct: 0,
+    puntos_por_monto: 0,
   })
 
   const { items, agregar, quitar, vaciar, totalItems, totalPrecio, cargando: cargandoCarrito } =
@@ -57,7 +59,7 @@ export default function PaginaCatalogo() {
   useEffect(() => {
     supabase
       .from('configuracion')
-      .select('horario_activo, horario_apertura, horario_cierre, dias_activos, recargo_transferencia_pct')
+      .select('horario_activo, horario_apertura, horario_cierre, dias_activos, recargo_transferencia_pct, puntos_por_monto')
       .single()
       .then(({ data }) => { if (data) setConfigHorario(data) })
   }, [])
@@ -164,6 +166,8 @@ export default function PaginaCatalogo() {
 
             {/* Íconos de la derecha */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              <MisPuntos fidelizacionActiva={(configHorario.puntos_por_monto ?? 0) > 0} />
+
               {instagramUrl && (
                 <a
                   href={instagramUrl}

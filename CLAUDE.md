@@ -112,6 +112,7 @@ Clientes del sistema de fidelización. Se crean automáticamente cuando un clien
 | `nombre` | text NOT NULL | | |
 | `puntos_acumulados` | integer | 0 | Total histórico de puntos ganados |
 | `puntos_canjeados` | integer | 0 | Total histórico de puntos canjeados |
+| `telefono_digitos` | text | generada | Columna GENERATED: solo los dígitos de `telefono`. Permite buscar al cliente escriba como escriba el número |
 | `created_at` | timestamptz | now() | |
 
 `puntos disponibles = puntos_acumulados - puntos_canjeados`
@@ -172,6 +173,7 @@ Definidas en `.env.local` (ver `.env.local.example`).
 12. `supabase/migration_horario.sql` — columnas de horario en `configuracion`
 13. `supabase/migration_recargo_transferencia.sql` — columna `recargo_transferencia` en productos, columna `recargo_transferencia_pct` en configuracion, habilita Realtime en tabla `productos`
 14. `supabase/migration_seguridad_rls.sql` — cierra el acceso público a `pedidos`, `clientes` e `historial_puntos`; crea `avisos_pedidos` con su trigger y la suma a Realtime
+15. `supabase/migration_puntos_cliente.sql` — columna generada `telefono_digitos` en `clientes` con su índice, para la consulta de puntos del cliente
 
 Quedaron **obsoletas** y no hay que correrlas en una instalación nueva: `migration_clientes_delete_policy.sql` y `migration_desactivar_rls_clientes.sql` — la migración 14 revierte lo que hacían.
 
@@ -207,7 +209,8 @@ Quedaron **obsoletas** y no hay que correrlas en una instalación nueva: `migrat
 - **Barra flotante** "Ver pedido" en la parte inferior cuando hay items
 - **Logo circular** en header desde `public/logo.png`
 - **Ícono de Instagram** en header (solo si `NEXT_PUBLIC_INSTAGRAM_URL` está definida)
-- **PWA**: installable via `next-pwa`, manifest configurado
+- **Chip de puntos** en el header (`MisPuntos.tsx`): visible solo si la fidelización está activa. Muestra ★ y el saldo apenas se conoce el teléfono, y al tocarlo abre el detalle con la barra de progreso hacia el premio. El teléfono se guarda en `localStorage` (`kiosco-telefono`) al cerrar un pedido, así el cliente no lo escribe de nuevo — y también precarga el campo del checkout
+- **PWA**: installable via `next-pwa`, manifest configurado. En Android el `ModalInstalacion` ofrece un botón de instalación de un toque usando el `beforeinstallprompt` que captura el layout; en iOS quedan las instrucciones manuales, que es lo único que expone Safari
 
 ### Panel admin (`/admin`)
 
@@ -254,6 +257,13 @@ Autenticación custom con contraseña + cookie httpOnly de 7 días. El middlewar
 - **★ Historial**: movimientos de puntos con fecha y concepto
 - **📋 Pedidos**: historial de pedidos del cliente filtrado por teléfono
 - **🗑️ Eliminar**: borra cliente e historial (via función RPC en Supabase)
+
+#### Pestaña QR
+- Genera el QR del catálogo con la librería `qrcode` (import dinámico, no pesa en el bundle inicial)
+- Apunta por defecto a `window.location.origin`, así siempre da al dominio correcto; el campo es editable
+- **Imprimir cartel**: abre una ventana con el cartel listo para pegar en el mostrador (logo, QR, dominio e instrucción de instalar)
+- **Descargar QR**: PNG suelto para Instagram o volantes
+- El QR no instala nada: abre el sitio, y ahí actúa el `ModalInstalacion`
 
 #### Pestaña Configuración
 - Pedido mínimo, costo de envío, tiempo estimado, teléfono requerido
@@ -324,6 +334,12 @@ Es la **única** vía por la que entra un pedido del cliente, y el navegador no 
 - Creación/actualización de cliente por upsert según teléfono
 - `puntos disponibles = puntos_acumulados - puntos_canjeados` — los puntos canjeados nunca se borran, solo se acumulan
 
+### Consulta de puntos del cliente
+- `GET /api/puntos?telefono=…` es público, porque la única identificación que tiene el cliente es su teléfono
+- Devuelve **solo** el saldo, los puntos para canjear y el mensaje del premio. Nunca el nombre, el historial ni los pedidos: así, quien probara números al azar solo averiguaría cuántos puntos tiene un teléfono
+- Cada consulta que no encuentra a nadie cuenta como intento fallido en `rateLimit`, así probar números en serie bloquea la IP mientras que el cliente real nunca llega al tope
+- Busca por `telefono_digitos` (columna generada) y **suma** las filas que coincidan, por si el mismo número quedó cargado con dos formatos distintos
+
 ### Recargo por transferencia
 - Flag `recargo_transferencia` por producto (configurable en admin)
 - Porcentaje global `recargo_transferencia_pct` en configuracion
@@ -361,6 +377,7 @@ La anon key viaja en el bundle del navegador: todo lo que ella pueda leer es pú
 | POST | `/api/empleada/auth` | Login empleada |
 | DELETE | `/api/empleada/auth` | Logout empleada |
 | POST | `/api/pedidos` | **Público.** Alta de pedido: recalcula precios y puntos contra la base |
+| GET | `/api/puntos` | **Público.** Saldo de puntos por teléfono (param `telefono`). Devuelve solo puntos y premio, nunca nombre ni historial |
 | GET | `/api/admin/productos` | Todos los productos |
 | POST | `/api/admin/productos` | Crear producto |
 | PATCH | `/api/admin/productos/[id]` | Editar producto |

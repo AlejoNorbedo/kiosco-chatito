@@ -5,9 +5,35 @@ import Image from 'next/image'
 
 const STORAGE_KEY = 'pwa-modal-mostrado'
 
+/** El evento que Chrome dispara cuando la app se puede instalar de una. */
+type EventoInstalacion = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+function promptGuardado(): EventoInstalacion | null {
+  return (window as unknown as { __pwaInstallPrompt?: EventoInstalacion }).__pwaInstallPrompt ?? null
+}
+
 export default function ModalInstalacion() {
   const [visible, setVisible] = useState(false)
   const [dispositivo, setDispositivo] = useState<'android' | 'ios' | 'otro'>('otro')
+  // Chrome/Android permite instalar con un toque. iOS no expone nada parecido,
+  // así que ahí siguen valiendo las instrucciones manuales.
+  const [instalacionDirecta, setInstalacionDirecta] = useState(false)
+
+  useEffect(() => {
+    if (promptGuardado()) setInstalacionDirecta(true)
+
+    // Por si el evento llega después de que el layout lo capturó.
+    function alPoderInstalar(e: Event) {
+      e.preventDefault()
+      ;(window as unknown as { __pwaInstallPrompt?: Event }).__pwaInstallPrompt = e
+      setInstalacionDirecta(true)
+    }
+    window.addEventListener('beforeinstallprompt', alPoderInstalar)
+    return () => window.removeEventListener('beforeinstallprompt', alPoderInstalar)
+  }, [])
 
   useEffect(() => {
     const yaInstalada =
@@ -31,6 +57,21 @@ export default function ModalInstalacion() {
   function cerrar() {
     localStorage.setItem(STORAGE_KEY, '1')
     setVisible(false)
+  }
+
+  async function instalar() {
+    const evento = promptGuardado()
+    if (!evento) return
+    try {
+      await evento.prompt()
+      await evento.userChoice
+    } catch {
+      // Si el navegador lo rechaza quedan las instrucciones manuales abajo.
+      return
+    }
+    // El evento se consume: no se puede volver a usar.
+    ;(window as unknown as { __pwaInstallPrompt?: EventoInstalacion }).__pwaInstallPrompt = undefined
+    cerrar()
   }
 
   if (!visible) return null
@@ -67,6 +108,21 @@ export default function ModalInstalacion() {
             Accedé al kiosco más rápido desde tu celular
           </p>
         </div>
+
+        {/* Instalación de un toque (Android/Chrome) */}
+        {instalacionDirecta && (
+          <div className="px-6 pb-2">
+            <button
+              onClick={instalar}
+              className="w-full bg-[#CC0000] hover:bg-red-700 active:bg-red-800 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-red-900/20"
+            >
+              Instalar app
+            </button>
+            <p className="text-[11px] text-gray-400 text-center mt-2">
+              O hacelo a mano con estos pasos:
+            </p>
+          </div>
+        )}
 
         {/* Instrucciones */}
         <div className="px-6 pb-4 flex flex-col gap-3">

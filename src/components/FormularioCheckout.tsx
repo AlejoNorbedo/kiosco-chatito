@@ -2,6 +2,16 @@
 
 import { useState } from 'react'
 import type { Configuracion, DatosCheckout } from '@/types'
+import { CLAVE_TELEFONO } from '@/components/MisPuntos'
+
+function telefonoRecordado(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    return localStorage.getItem(CLAVE_TELEFONO) ?? ''
+  } catch {
+    return ''
+  }
+}
 
 type Props = {
   config: Configuracion
@@ -21,16 +31,17 @@ export default function FormularioCheckout({
   error,
   onEnviar,
 }: Props) {
-  const [form, setForm] = useState<DatosCheckout>({
+  const [form, setForm] = useState<DatosCheckout>(() => ({
     nombre: '',
     tipoEntrega: 'retiro',
     direccion: '',
     entreCalles: '',
     metodoPago: 'efectivo',
     conCuanto: '',
-    telefono: '',
+    // Si ya pidió antes desde este celular, evitamos que lo tipee de nuevo.
+    telefono: telefonoRecordado(),
     aclaraciones: '',
-  })
+  }))
   const [errores, setErrores] = useState<Partial<Record<keyof DatosCheckout, string>>>({})
 
   const costoEnvio = form.tipoEntrega === 'envio' ? config.costo_envio : 0

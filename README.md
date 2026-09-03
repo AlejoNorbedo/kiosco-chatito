@@ -58,6 +58,7 @@ Correr los archivos de [`supabase/`](supabase/) en el SQL Editor, **en este orde
 12. `migration_horario.sql`
 13. `migration_recargo_transferencia.sql`
 14. `migration_seguridad_rls.sql` ← cierra el acceso público a datos sensibles
+15. `migration_puntos_cliente.sql` ← habilita la consulta de puntos del cliente
 
 > Los archivos `migration_clientes_delete_policy.sql` y
 > `migration_desactivar_rls_clientes.sql` quedaron obsoletos:
@@ -95,6 +96,7 @@ src/
 │   ├── empleada/             panel acotado para empleadas
 │   └── api/
 │       ├── pedidos/          alta de pedidos (público, valida contra la base)
+│       ├── puntos/           saldo de puntos del cliente (público, acotado)
 │       ├── auth/             login del dueño
 │       ├── empleada/auth/    login de empleadas
 │       └── admin/            CRUD protegido por middleware

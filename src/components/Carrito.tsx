@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import FormularioCheckout from '@/components/FormularioCheckout'
+import { CLAVE_TELEFONO, EVENTO_PUNTOS } from '@/components/MisPuntos'
 import type { ItemCarrito, Configuracion, DatosCheckout, ItemPedido } from '@/types'
 
 /** Totales ya recalculados por el servidor — son los que valen. */
@@ -178,6 +179,17 @@ export default function Carrito({
 
       const pedido = await respuesta.json()
       if (!respuesta.ok) throw new Error(pedido?.error ?? 'No pudimos registrar el pedido')
+
+      // El teléfono queda recordado para que el chip de puntos del header lo
+      // muestre solo, sin que el cliente lo tenga que escribir de nuevo.
+      if (datos.telefono) {
+        try {
+          localStorage.setItem(CLAVE_TELEFONO, datos.telefono)
+        } catch {
+          // Modo incógnito: el pedido igual se envía.
+        }
+        window.dispatchEvent(new Event(EVENTO_PUNTOS))
+      }
 
       const url = `https://wa.me/${numeroWhatsApp}?text=${armarMensajeWhatsApp(datos, pedido)}`
       if (ventana && !ventana.closed) ventana.location.href = url
