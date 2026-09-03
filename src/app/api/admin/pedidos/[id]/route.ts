@@ -1,17 +1,36 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
+import { variantesTelefono } from '@/lib/telefono'
+import type { EstadoPedido } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
+const ESTADOS_VALIDOS: EstadoPedido[] = ['pendiente', 'confirmado', 'cancelado']
+
+/**
+ * Cambia el estado de un pedido. Es lo único que deja tocar.
+ *
+ * El middleware le da acceso también a las empleadas, así que antes —cuando
+ * volcaba el body entero al UPDATE— cualquiera con la clave de empleadas podía
+ * mandar `{"total": 1}` o `{"items": []}` y reescribir el pedido.
+ */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const admin = crearClienteAdmin()
-    const { estado, ...resto } = await request.json()
-    const datos: Record<string, unknown> = { ...resto }
-    if (estado !== undefined) datos.estado = estado
+
+    let estado: unknown
+    try {
+      estado = (await request.json())?.estado
+    } catch {
+      return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
+    }
+
+    if (!ESTADOS_VALIDOS.includes(estado as EstadoPedido)) {
+      return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
+    }
 
     // Al confirmar un pedido, descontar el stock de cada producto
     if (estado === 'confirmado') {
@@ -57,13 +76,18 @@ export async function PATCH(
       const yaCancelado = pedidoActual?.estado === 'cancelado'
       const puntosARestar = pedidoActual?.puntos_generados ?? 0
       const telefono = (pedidoActual?.datos_cliente as { telefono?: string } | null)?.telefono?.trim()
+      // Por dígitos y no por igualdad exacta: el cliente pudo haber escrito el
+      // número con otro formato en el pedido que en el que lo dio de alta.
+      const variantes = telefono ? variantesTelefono(telefono) : []
 
-      if (!yaCancelado && puntosARestar > 0 && telefono) {
-        const { data: cliente } = await admin
+      if (!yaCancelado && puntosARestar > 0 && variantes.length > 0) {
+        const { data: encontrados } = await admin
           .from('clientes')
           .select('id, puntos_acumulados')
-          .eq('telefono', telefono)
-          .maybeSingle()
+          .in('telefono_digitos', variantes)
+          .order('created_at', { ascending: true })
+
+        const cliente = encontrados?.[0]
 
         if (cliente) {
           const nuevos = Math.max(0, cliente.puntos_acumulados - puntosARestar)
@@ -79,7 +103,7 @@ export async function PATCH(
 
     const { data, error } = await admin
       .from('pedidos')
-      .update(datos)
+      .update({ estado })
       .eq('id', params.id)
       .select()
       .maybeSingle()

@@ -8,6 +8,8 @@ import CierreCaja from '@/components/admin/CierreCaja'
 import TabClientes from '@/components/admin/TabClientes'
 import Dashboard from '@/components/admin/Dashboard'
 import TabQR from '@/components/admin/TabQR'
+import { CONFIG_DEFECTO } from '@/lib/configuracion'
+import { ordenarProductos, type OrdenProductos } from '@/lib/productos'
 import type { Producto, Pedido, Configuracion, EstadoPedido } from '@/types'
 
 type Tab = 'dashboard' | 'productos' | 'pedidos' | 'cierre' | 'clientes' | 'qr' | 'configuracion'
@@ -27,19 +29,6 @@ function sonarNotificacion() {
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.5)
   } catch { /* silent */ }
-}
-
-type OrdenProductos = 'creacion' | 'az' | 'za' | 'menor_precio' | 'mayor_precio'
-
-function sortearProductos(lista: Producto[], orden: OrdenProductos): Producto[] {
-  const c = [...lista]
-  switch (orden) {
-    case 'az': return c.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-    case 'za': return c.sort((a, b) => b.nombre.localeCompare(a.nombre, 'es'))
-    case 'menor_precio': return c.sort((a, b) => a.precio - b.precio)
-    case 'mayor_precio': return c.sort((a, b) => b.precio - a.precio)
-    default: return c.sort((a, b) => a.created_at.localeCompare(b.created_at))
-  }
 }
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -67,28 +56,14 @@ export default function PaginaAdmin() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const [productos, setProductos] = useState<Producto[]>([])
   const [pedidos, setPedidos] = useState<Pedido[]>([])
-  const [config, setConfig] = useState<Configuracion>({
-    costo_envio: 0,
-    tiempo_entrega_activo: false,
-    tiempo_entrega_texto: '30-45 minutos',
-    telefono_requerido: false,
-    monto_minimo: 0,
-    puntos_por_monto: 0,
-    puntos_para_canje: 0,
-    mensaje_canje: '',
-    horario_activo: false,
-    horario_apertura: '09:00',
-    horario_cierre: '22:00',
-    dias_activos: [0, 1, 2, 3, 4, 5, 6],
-    recargo_transferencia_pct: 0,
-  })
+  const [config, setConfig] = useState<Configuracion>(CONFIG_DEFECTO)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [productoEditando, setProductoEditando] = useState<Producto | undefined>()
   const [ordenProductos, setOrdenProductos] = useState<OrdenProductos>('creacion')
   const productosSorted = useMemo(
-    () => sortearProductos(productos, ordenProductos),
+    () => ordenarProductos(productos, ordenProductos),
     [productos, ordenProductos]
   )
   const categoriasExistentes = useMemo(
@@ -129,7 +104,10 @@ export default function PaginaAdmin() {
   const [mensajeConfig, setMensajeConfig] = useState('')
   const [nuevosPedidos, setNuevosPedidos] = useState(0)
   const [toastPedido, setToastPedido] = useState<Pedido | null>(null)
-  const [pedidosCargados, setPedidosCargados] = useState(false)
+  // Ref y no estado: no se muestra en pantalla, y como estado obligaría a
+  // sumarlo a las dependencias del efecto de tabs, que solo debe correr al
+  // cambiar de pestaña.
+  const pedidosCargadosRef = useRef(false)
   const tabRef = useRef<Tab>('dashboard')
   const router = useRouter()
 
@@ -146,7 +124,7 @@ export default function PaginaAdmin() {
     tabRef.current = tab
     if (tab === 'pedidos') {
       setNuevosPedidos(0)
-      if (!pedidosCargados) cargarPedidos()
+      if (!pedidosCargadosRef.current) cargarPedidos()
     }
     if (tab === 'configuracion') cargarConfig()
   }, [tab])
@@ -206,7 +184,7 @@ export default function PaginaAdmin() {
         const soloRealtime = prev.filter((p) => !idsServidor.has(p.id))
         return [...soloRealtime, ...del_servidor]
       })
-      setPedidosCargados(true)
+      pedidosCargadosRef.current = true
     }
   }
 

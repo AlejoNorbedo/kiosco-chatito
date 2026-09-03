@@ -8,31 +8,9 @@ import ProductoCard from '@/components/ProductoCard'
 import Carrito from '@/components/Carrito'
 import ModalInstalacion from '@/components/ModalInstalacion'
 import MisPuntos from '@/components/MisPuntos'
+import { CONFIG_DEFECTO, estaAbierto } from '@/lib/configuracion'
+import { ordenarProductos, type OrdenProductos } from '@/lib/productos'
 import type { Producto, Configuracion } from '@/types'
-
-function estaAbierto(config: Configuracion): boolean {
-  if (!config.horario_activo) return true
-  const ahora = new Date()
-  const dia = ahora.getDay()
-  if (!(config.dias_activos ?? [0,1,2,3,4,5,6]).includes(dia)) return false
-  const [hAp, mAp] = config.horario_apertura.split(':').map(Number)
-  const [hCi, mCi] = config.horario_cierre.split(':').map(Number)
-  const min = ahora.getHours() * 60 + ahora.getMinutes()
-  return min >= hAp * 60 + mAp && min < hCi * 60 + mCi
-}
-
-type OrdenProductos = 'creacion' | 'az' | 'za' | 'menor_precio' | 'mayor_precio'
-
-function sortearProductos(lista: Producto[], orden: OrdenProductos): Producto[] {
-  const c = [...lista]
-  switch (orden) {
-    case 'az': return c.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-    case 'za': return c.sort((a, b) => b.nombre.localeCompare(a.nombre, 'es'))
-    case 'menor_precio': return c.sort((a, b) => (a.precio_oferta ?? a.precio) - (b.precio_oferta ?? b.precio))
-    case 'mayor_precio': return c.sort((a, b) => (b.precio_oferta ?? b.precio) - (a.precio_oferta ?? a.precio))
-    default: return c.sort((a, b) => a.created_at.localeCompare(b.created_at))
-  }
-}
 
 export default function PaginaCatalogo() {
   const [productos, setProductos] = useState<Producto[]>([])
@@ -42,14 +20,7 @@ export default function PaginaCatalogo() {
   const [orden, setOrden] = useState<OrdenProductos>('creacion')
   const [carritoAbierto, setCarritoAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [configHorario, setConfigHorario] = useState<Pick<Configuracion, 'horario_activo' | 'horario_apertura' | 'horario_cierre' | 'dias_activos' | 'recargo_transferencia_pct' | 'puntos_por_monto'>>({
-    horario_activo: false,
-    horario_apertura: '09:00',
-    horario_cierre: '22:00',
-    dias_activos: [0, 1, 2, 3, 4, 5, 6],
-    recargo_transferencia_pct: 0,
-    puntos_por_monto: 0,
-  })
+  const [configHorario, setConfigHorario] = useState<Configuracion>(CONFIG_DEFECTO)
 
   const { items, agregar, quitar, vaciar, totalItems, totalPrecio, cargando: cargandoCarrito } =
     useCarrito()
@@ -61,7 +32,7 @@ export default function PaginaCatalogo() {
       .from('configuracion')
       .select('horario_activo, horario_apertura, horario_cierre, dias_activos, recargo_transferencia_pct, puntos_por_monto')
       .single()
-      .then(({ data }) => { if (data) setConfigHorario(data) })
+      .then(({ data }) => { if (data) setConfigHorario((prev) => ({ ...prev, ...data })) })
   }, [])
 
   useEffect(() => {
@@ -113,7 +84,7 @@ export default function PaginaCatalogo() {
     } else {
       base = categoriaActiva === 'Todos' ? productos : productos.filter((p) => p.categoria === categoriaActiva)
     }
-    return sortearProductos(base, orden)
+    return ordenarProductos(base, orden)
   }, [productos, categoriaActiva, orden, busqueda])
 
   const productosDestacados = useMemo(() => {

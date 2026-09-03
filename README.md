@@ -60,10 +60,6 @@ Correr los archivos de [`supabase/`](supabase/) en el SQL Editor, **en este orde
 14. `migration_seguridad_rls.sql` ← cierra el acceso público a datos sensibles
 15. `migration_puntos_cliente.sql` ← habilita la consulta de puntos del cliente
 
-> Los archivos `migration_clientes_delete_policy.sql` y
-> `migration_desactivar_rls_clientes.sql` quedaron obsoletos:
-> `migration_seguridad_rls.sql` revierte lo que hacían.
-
 También hay que habilitar Realtime en `productos`:
 
 ```sql
@@ -106,7 +102,10 @@ src/
 │   ├── supabase.ts           cliente anon (navegador)
 │   ├── supabaseAdmin.ts      cliente service role (solo servidor)
 │   ├── sesion.ts             tokens de sesión firmados con HMAC
-│   └── rateLimit.ts          tope de intentos de login
+│   ├── rateLimit.ts          tope de intentos de login
+│   ├── telefono.ts           normaliza teléfonos argentinos
+│   ├── configuracion.ts      defaults de config y horario de atención
+│   └── productos.ts          precio efectivo y orden del catálogo
 └── middleware.ts             protege /admin, /api/admin y /empleada
 ```
 

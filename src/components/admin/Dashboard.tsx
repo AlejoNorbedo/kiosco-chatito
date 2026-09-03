@@ -19,10 +19,11 @@ export default function Dashboard() {
       .finally(() => setCargando(false))
   }, [])
 
-  const ahora = new Date()
-  const hoyStr = ahora.toLocaleDateString('sv-SE')
-
   const stats = useMemo(() => {
+    // Se calcula acá adentro: si viviera en el cuerpo del componente sería un
+    // objeto nuevo en cada render y el useMemo no memorizaría nada.
+    const ahora = new Date()
+    const hoyStr = ahora.toLocaleDateString('sv-SE')
     const diaStr = (p: Pedido) => new Date(p.created_at).toLocaleDateString('sv-SE')
 
     const hoy = pedidos.filter((p) => diaStr(p) === hoyStr)
@@ -64,7 +65,7 @@ export default function Dashboard() {
       topProductos,
       diasSemana,
     }
-  }, [pedidos, hoyStr])
+  }, [pedidos])
 
   if (cargando) {
     return (

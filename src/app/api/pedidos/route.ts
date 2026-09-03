@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
+import { variantesTelefono } from '@/lib/telefono'
 import type { DatosCheckout, ItemPedido } from '@/types'
 
 /**
@@ -200,11 +201,18 @@ async function acreditarPuntos(
   datos: DatosCheckout,
   puntos: number
 ): Promise<number> {
-  const { data: existente } = await admin
+  // Se busca por dígitos y no por el teléfono tal cual: el mismo cliente
+  // escribe su número distinto cada vez ("+54 11...", "011...", "11 15..."),
+  // y por igualdad exacta se le creaba un cliente nuevo —con los puntos
+  // arrancando de cero— cada vez que cambiaba el formato.
+  const variantes = variantesTelefono(datos.telefono)
+  const { data: encontrados } = await admin
     .from('clientes')
     .select('id, puntos_acumulados')
-    .eq('telefono', datos.telefono)
-    .maybeSingle()
+    .in('telefono_digitos', variantes)
+    .order('created_at', { ascending: true })
+
+  const existente = encontrados?.[0] ?? null
 
   let clienteId: string
   let acumulados: number

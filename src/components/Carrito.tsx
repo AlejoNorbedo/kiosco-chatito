@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import FormularioCheckout from '@/components/FormularioCheckout'
 import { CLAVE_TELEFONO, EVENTO_PUNTOS } from '@/components/MisPuntos'
+import { CONFIG_DEFECTO, estaAbierto } from '@/lib/configuracion'
 import type { ItemCarrito, Configuracion, DatosCheckout, ItemPedido } from '@/types'
 
 /** Totales ya recalculados por el servidor — son los que valen. */
@@ -24,33 +25,6 @@ type Props = {
   onQuitar: (productoId: string) => void
   onVaciar: () => void
   onCerrar: () => void
-}
-
-const CONFIG_DEFECTO: Configuracion = {
-  costo_envio: 0,
-  tiempo_entrega_activo: false,
-  tiempo_entrega_texto: '30-45 minutos',
-  telefono_requerido: false,
-  monto_minimo: 0,
-  puntos_por_monto: 0,
-  puntos_para_canje: 0,
-  mensaje_canje: '',
-  horario_activo: false,
-  horario_apertura: '09:00',
-  horario_cierre: '22:00',
-  dias_activos: [0, 1, 2, 3, 4, 5, 6],
-  recargo_transferencia_pct: 0,
-}
-
-function estaAbierto(config: Configuracion): boolean {
-  if (!config.horario_activo) return true
-  const ahora = new Date()
-  const dia = ahora.getDay()
-  if (!(config.dias_activos ?? [0,1,2,3,4,5,6]).includes(dia)) return false
-  const [hAp, mAp] = config.horario_apertura.split(':').map(Number)
-  const [hCi, mCi] = config.horario_cierre.split(':').map(Number)
-  const min = ahora.getHours() * 60 + ahora.getMinutes()
-  return min >= hAp * 60 + mAp && min < hCi * 60 + mCi
 }
 
 export default function Carrito({

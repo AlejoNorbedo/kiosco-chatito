@@ -175,8 +175,6 @@ Definidas en `.env.local` (ver `.env.local.example`).
 14. `supabase/migration_seguridad_rls.sql` — cierra el acceso público a `pedidos`, `clientes` e `historial_puntos`; crea `avisos_pedidos` con su trigger y la suma a Realtime
 15. `supabase/migration_puntos_cliente.sql` — columna generada `telefono_digitos` en `clientes` con su índice, para la consulta de puntos del cliente
 
-Quedaron **obsoletas** y no hay que correrlas en una instalación nueva: `migration_clientes_delete_policy.sql` y `migration_desactivar_rls_clientes.sql` — la migración 14 revierte lo que hacían.
-
 ---
 
 ## Funcionalidades implementadas
@@ -297,6 +295,17 @@ Sin Supabase Auth — sistema propio para dos roles: `admin` y `empleada`.
 - Las contraseñas se comparan por su hash SHA-256 en tiempo constante, así el tiempo de respuesta no filtra cuántos caracteres acertó quien intenta adivinarla
 - `src/lib/rateLimit.ts` bloquea la IP 15 minutos tras 8 intentos fallidos. Es un `Map` en memoria: en Vercel es por instancia, así que frena fuerza bruta simple, no un ataque distribuido
 
+### Módulos compartidos (`src/lib/`)
+Lo que usan dos o más pantallas vive acá, porque duplicado se desincroniza:
+
+- `configuracion.ts` — `CONFIG_DEFECTO` y `estaAbierto()`, que usaban por igual el catálogo, el carrito y el admin
+- `productos.ts` — `precioEfectivo()` y `ordenarProductos()`. Estaban duplicados y ya se habían desincronizado: el catálogo ordenaba por precio efectivo y el admin por precio de lista, así que un producto en oferta caía en distinto lugar en cada pantalla
+- `telefono.ts` — `variantesTelefono()`, la normalización de teléfonos argentinos
+- `sesion.ts` y `rateLimit.ts` — sesiones firmadas y tope de intentos
+
+### Identificación del cliente por teléfono
+Todo lo que busca un cliente lo hace por `telefono_digitos`, nunca por igualdad exacta sobre `telefono`: el alta de puntos en `POST /api/pedidos`, el descuento al cancelar un pedido y la consulta de `GET /api/puntos`. Buscar por igualdad exacta le creaba un cliente nuevo —con los puntos en cero— cada vez que la persona escribía su número con otro formato.
+
 ### Clientes de Supabase
 - `src/lib/supabase.ts` — cliente anon, para componentes cliente y lectura pública
 - `src/lib/supabaseAdmin.ts` — service role key, solo en API Routes. Configurado con `autoRefreshToken: false`, `persistSession: false` y header `Authorization: Bearer` explícito (necesario con el nuevo formato de keys `sb_publishable_*`)
@@ -384,7 +393,7 @@ La anon key viaja en el bundle del navegador: todo lo que ella pueda leer es pú
 | PATCH | `/api/admin/productos/[id]` | Editar producto |
 | DELETE | `/api/admin/productos/[id]` | Eliminar producto |
 | GET | `/api/admin/pedidos` | Pedidos (params: `id`, `desde`, `hasta`, `estado`, `telefono`). Con `id` devuelve uno solo — lo usa el aviso realtime. Accesible también para empleadas |
-| PATCH | `/api/admin/pedidos/[id]` | Actualizar estado u otros campos |
+| PATCH | `/api/admin/pedidos/[id]` | Cambiar el estado. **Solo acepta `estado`** — el middleware da acceso también a empleadas, así que no puede tocar totales ni items |
 | GET | `/api/admin/configuracion` | Leer configuración |
 | PATCH | `/api/admin/configuracion` | Guardar configuración |
 | POST | `/api/admin/storage` | Subir imagen a Supabase Storage |
