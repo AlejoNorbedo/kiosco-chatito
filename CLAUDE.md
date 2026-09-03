@@ -112,7 +112,7 @@ Clientes del sistema de fidelización. Se crean automáticamente cuando un clien
 | `nombre` | text NOT NULL | | |
 | `puntos_acumulados` | integer | 0 | Total histórico de puntos ganados |
 | `puntos_canjeados` | integer | 0 | Total histórico de puntos canjeados |
-| `telefono_digitos` | text | generada | Columna GENERATED: solo los dígitos de `telefono`. Permite buscar al cliente escriba como escriba el número |
+| `telefono_digitos` | text | generada | Columna GENERATED: `right(solo_digitos(telefono), 10)`. Los últimos 10 dígitos son el número argentino real, así que los prefijos `+54`, `9` y `0` se descartan solos y el cliente se encuentra escriba como escriba |
 | `created_at` | timestamptz | now() | |
 
 `puntos disponibles = puntos_acumulados - puntos_canjeados`
@@ -338,7 +338,8 @@ Es la **única** vía por la que entra un pedido del cliente, y el navegador no 
 - `GET /api/puntos?telefono=…` es público, porque la única identificación que tiene el cliente es su teléfono
 - Devuelve **solo** el saldo, los puntos para canjear y el mensaje del premio. Nunca el nombre, el historial ni los pedidos: así, quien probara números al azar solo averiguaría cuántos puntos tiene un teléfono
 - Cada consulta que no encuentra a nadie cuenta como intento fallido en `rateLimit`, así probar números en serie bloquea la IP mientras que el cliente real nunca llega al tope
-- Busca por `telefono_digitos` (columna generada) y **suma** las filas que coincidan, por si el mismo número quedó cargado con dos formatos distintos
+- `variantesTelefono()` arma las formas en que un argentino puede escribir el mismo número y busca todas con `.in()`. Los prefijos `+54`, `9` y `0` los resuelve la columna al quedarse con los últimos 10 dígitos; el `15` se maneja acá porque va en el medio, después de un código de área de 2, 3 o 4 dígitos
+- **Suma** todas las filas que coincidan, por si el mismo número quedó cargado con dos formatos distintos
 
 ### Recargo por transferencia
 - Flag `recargo_transferencia` por producto (configurable en admin)

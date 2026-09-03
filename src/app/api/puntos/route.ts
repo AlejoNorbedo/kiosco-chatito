@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabaseAdmin'
 import { ipDe, limpiarIntentos, registrarFallo, segundosDeBloqueo } from '@/lib/rateLimit'
+import { variantesTelefono } from '@/lib/telefono'
 
 /**
  * Saldo de puntos de un cliente, buscado por teléfono.
@@ -18,8 +19,6 @@ import { ipDe, limpiarIntentos, registrarFallo, segundosDeBloqueo } from '@/lib/
 
 export const dynamic = 'force-dynamic'
 
-const MIN_DIGITOS = 6
-
 export async function GET(request: Request) {
   try {
     const clave = `puntos:${ipDe(request)}`
@@ -32,9 +31,9 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const digitos = (searchParams.get('telefono') ?? '').replace(/\D/g, '')
+    const variantes = variantesTelefono(searchParams.get('telefono') ?? '')
 
-    if (digitos.length < MIN_DIGITOS) {
+    if (variantes.length === 0) {
       return NextResponse.json({ error: 'Ingresá un teléfono válido' }, { status: 400 })
     }
 
@@ -59,7 +58,7 @@ export async function GET(request: Request) {
     const { data: clientes, error: errorClientes } = await admin
       .from('clientes')
       .select('puntos_acumulados, puntos_canjeados')
-      .eq('telefono_digitos', digitos)
+      .in('telefono_digitos', variantes)
 
     if (errorClientes) {
       return NextResponse.json({ error: 'No pudimos consultar los puntos' }, { status: 500 })
